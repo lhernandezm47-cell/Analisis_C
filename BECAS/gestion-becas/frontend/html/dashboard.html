@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>ScholarLink | Tu futuro comienza hoy</title>
+
+    <link rel="stylesheet" href="../css/estilos.css">
+
+</head>
+
+
+<body>
+
+
+    <!-- ==========================================
+         BARRA DE NAVEGACIÓN
+    =========================================== -->
+
+    <header class="navbar">
+
+        <div class="navbar-contenido">
+
+
+            <!-- LOGO SCHOLARLINK -->
+
+            <a href="#inicio" class="logo-becatech">
+
+                <img
+                    src="../img/logo-scholarlink.png"
+                    alt="Logo de ScholarLink"
+                >
+
+                <span>
+                    <strong>Scholar</strong>Link
+                </span>
+
+            </a>
+
+
+
+            <!-- MENÚ PRINCIPAL -->
+
+            <nav class="menu-principal">
+
+                <a href="#inicio" class="activo">
+                    Inicio
+                </a>
+
+
+                <!-- ==================================
+                     CONVOCATORIAS CORREGIDO
+                =================================== -->
+
+                <a href="convocatorias.html">
+                    Convocatorias
+                </a>
+
+
+                <a href="#como-aplicar">
+                    Cómo aplicar
+                </a>
+
+
+                <a href="#requisitos">
+                    Requisitos
+                </a>
+
+
+                <a href="#preguntas">
+                    Preguntas frecuentes
+                </a>
+
+            </nav>
+
+
+
+            <!-- USUARIO -->
+
+            <div class="usuario-menu">
+
+                <span
+                    class="usuario-nombre"
+                    id="nombreUsuario"
+                >
+                    Usuario
+                </span>
+
+
+                <button
+                    type="button"
+                    class="btn-usuario"
+                    onclick="cerrarSesion()"
+                >
+                    Salir
+                </button>
+
+            </div>
+
+        </div>
+
+    </header>
+
+
+
+
+    <!-- ==========================================
+         CONTENIDO PRINCIPAL
+    =========================================== -->
+
+    <main>
+
+
+
+        <!-- ==========================================
+             HERO
+        =========================================== -->
+
+        <section
+            class="hero"
+            id="inicio"
+        >
+
+            <div class="hero-contenido">
+
+
+
+                <!-- TEXTO -->
+
+                <div class="hero-texto">
+
+                    <span class="etiqueta-hero">
+                        🎓 Plataforma Nacional de Becas
+                    </span>
+
+
+                    <h1>
+
+                        Tu futuro comienza
+
+                        <span>
+                            hoy
+                        </span>
+
+                    </h1>
+
+
+                    <p>
+
+                        Bienvenido a ScholarLink, la plataforma donde
+                        puedes encontrar oportunidades de becas,
+                        conocer los requisitos y postularte a
+                        diferentes programas educativos.
+
+                    </p>
+
+
+
+                    <div class="hero-botones">
+
+
+                        <!-- ==================================
+                             BOTÓN CONVOCATORIAS
+                        =================================== -->
+
+                        <a href="convocatorias.html" class="btn-ver-convocatorias">
+    
+                            Ver Convocatorias
+                        </a>
+
+
+                        <a
+                            href="#como-aplicar"
+                            class="btn-secundario"
+                        >
+                            ¿Cómo aplicar?
+                        </a>
+
+                    </div>
+
+                </div>
+
+
+
+
+                <!-- TARJETA VISUAL -->
+
+                <div class="hero-imagen">
+
+                    <div class="hero-tarjeta">
+
+                        <img
+                            src="../img/logo-scholarlink.png"
+                            alt="ScholarLink"
+                        >
+
+
+                        <h3>
+                            Invierte en tu futuro
+                        </h3>
+
+
+                        <p>
+
+                            Descubre nuevas oportunidades para
+                            continuar tu formación académica.
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+
+        <!-- ==========================================
+             ESTADÍSTICAS
+        =========================================== -->
+
+        <section class="estadisticas">
+
+
+            <div class="estadistica">
+
+                <strong>
+                    +100
+                </strong>
+
+                <span>
+                    Oportunidades
+                </span>
+
+            </div>
+
+
+
+            <div class="estadistica">
+
+                <strong>
+                    +50
+                </strong>
+
+                <span>
+                    Instituciones
+                </span>
+
+            </div>
+
+
+
+            <div class="estadistica">
+
+                <strong>
+                    +1,000
+                </strong>
+
+                <span>
+                    Estudiantes beneficiados
+                </span>
+
+            </div>
+
+
+
+            <div class="estadistica">
+
+                <strong>
+                    2026
+                </strong>
+
+                <span>
+                    Convocatorias vigentes
+                </span>
+
+            </div>
+
+        </section>
+
+
+
+
+        <!-- ==========================================
+             BECAS DESTACADAS
+        =========================================== -->
+
+        <section
+            class="seccion"
+            id="becas"
+        >
+
+
+            <div class="encabezado-seccion">
+
+                <span class="etiqueta-seccion">
+                    OPORTUNIDADES
+                </span>
+
+
+                <h2>
+                    Encuentra la beca ideal para ti
+                </h2>
+
+
+                <p>
+
+                    Explora nuestras convocatorias y encuentra
+                    una oportunidad que se adapte a tus metas.
+
+                </p>
+
+            </div>
+
+
+
+            <div class="becas-grid">
+
+
+
+                <!-- ==================================
+                     BECA 1
+                =================================== -->
+
+                <article class="beca-card">
+
+
+                    <div class="beca-imagen beca-academica">
+
+                        <span class="icono-beca">
+                            🏆
+                        </span>
+
+
+                        <span class="badge">
+                            Destacada
+                        </span>
+
+                    </div>
+
+
+
+                    <div class="beca-contenido">
+
+
+                        <span class="categoria">
+                            Excelencia académica
+                        </span>
+
+
+                        <h3>
+                            Beca Excelencia Académica
+                        </h3>
+
+
+                        <p>
+
+                            Apoyo para estudiantes con un excelente
+                            rendimiento académico.
+
+                        </p>
+
+
+
+                        <div class="beca-info">
+
+
+                            <span>
+                                📅 Hasta 30/10/2026
+                            </span>
+
+
+                            <span>
+                                💰 Cobertura completa
+                            </span>
+
+                        </div>
+
+
+
+                        <button
+                            type="button"
+                            class="btn-beca"
+                            onclick="verBeca('Excelencia Académica')"
+                        >
+                            Ver detalles
+                        </button>
+
+                    </div>
+
+                </article>
+
+
+
+
+                <!-- ==================================
+                     BECA 2
+                =================================== -->
+
+                <article class="beca-card">
+
+
+                    <div class="beca-imagen beca-tecnologia">
+
+                        <span class="icono-beca">
+                            💻
+                        </span>
+
+
+                        <span class="badge">
+                            Nueva
+                        </span>
+
+                    </div>
+
+
+
+                    <div class="beca-contenido">
+
+
+                        <span class="categoria">
+                            Tecnología
+                        </span>
+
+
+                        <h3>
+                            Beca Innovación Tecnológica
+                        </h3>
+
+
+                        <p>
+
+                            Programa dirigido a estudiantes interesados
+                            en tecnología, programación e innovación.
+
+                        </p>
+
+
+
+                        <div class="beca-info">
+
+
+                            <span>
+                                📅 Hasta 15/11/2026
+                            </span>
+
+
+                            <span>
+                                💰 Apoyo económico
+                            </span>
+
+                        </div>
+
+
+
+                        <button
+                            type="button"
+                            class="btn-beca"
+                            onclick="verBeca('Innovación Tecnológica')"
+                        >
+                            Ver detalles
+                        </button>
+
+                    </div>
+
+                </article>
+
+
+
+
+                <!-- ==================================
+                     BECA 3
+                =================================== -->
+
+                <article class="beca-card">
+
+
+                    <div class="beca-imagen beca-deportiva">
+
+                        <span class="icono-beca">
+                            ⚽
+                        </span>
+
+                    </div>
+
+
+
+                    <div class="beca-contenido">
+
+
+                        <span class="categoria">
+                            Deportiva
+                        </span>
+
+
+                        <h3>
+                            Beca Talento Deportivo
+                        </h3>
+
+
+                        <p>
+
+                            Oportunidad para estudiantes que destacan
+                            por su talento y disciplina deportiva.
+
+                        </p>
+
+
+
+                        <div class="beca-info">
+
+
+                            <span>
+                                📅 Hasta 20/12/2026
+                            </span>
+
+
+                            <span>
+                                💰 Apoyo educativo
+                            </span>
+
+                        </div>
+
+
+
+                        <button
+                            type="button"
+                            class="btn-beca"
+                            onclick="verBeca('Talento Deportivo')"
+                        >
+                            Ver detalles
+                        </button>
+
+                    </div>
+
+                </article>
+
+
+
+
+                <!-- ==================================
+                     BECA 4
+                =================================== -->
+
+                <article class="beca-card">
+
+
+                    <div class="beca-imagen beca-social">
+
+                        <span class="icono-beca">
+                            🌎
+                        </span>
+
+                    </div>
+
+
+
+                    <div class="beca-contenido">
+
+
+                        <span class="categoria">
+                            Desarrollo social
+                        </span>
+
+
+                        <h3>
+                            Beca Desarrollo Comunitario
+                        </h3>
+
+
+                        <p>
+
+                            Apoyo para jóvenes comprometidos con
+                            proyectos de impacto social.
+
+                        </p>
+
+
+
+                        <div class="beca-info">
+
+
+                            <span>
+                                📅 Hasta 05/12/2026
+                            </span>
+
+
+                            <span>
+                                💰 Apoyo económico
+                            </span>
+
+                        </div>
+
+
+
+                        <button
+                            type="button"
+                            class="btn-beca"
+                            onclick="verBeca('Desarrollo Comunitario')"
+                        >
+                            Ver detalles
+                        </button>
+
+                    </div>
+
+                </article>
+
+            </div>
+
+        </section>
+
+
+
+
+        <!-- ==========================================
+             CÓMO APLICAR
+        =========================================== -->
+
+        <section
+            class="seccion seccion-clara"
+            id="como-aplicar"
+        >
+
+
+            <div class="encabezado-seccion">
+
+                <span class="etiqueta-seccion">
+                    PROCESO
+                </span>
+
+
+                <h2>
+                    ¿Cómo aplicar a una beca?
+                </h2>
+
+
+                <p>
+
+                    Sigue estos sencillos pasos para encontrar
+                    y solicitar la beca que necesitas.
+
+                </p>
+
+            </div>
+
+
+
+            <div class="pasos-grid">
+
+
+
+                <div class="paso">
+
+                    <div class="paso-numero">
+                        1
+                    </div>
+
+
+                    <h3>
+                        Busca una beca
+                    </h3>
+
+
+                    <p>
+
+                        Explora las diferentes convocatorias
+                        disponibles en ScholarLink.
+
+                    </p>
+
+                </div>
+
+
+
+
+                <div class="paso">
+
+                    <div class="paso-numero">
+                        2
+                    </div>
+
+
+                    <h3>
+                        Revisa los requisitos
+                    </h3>
+
+
+                    <p>
+
+                        Verifica que cumplas con todos los
+                        requisitos establecidos.
+
+                    </p>
+
+                </div>
+
+
+
+
+                <div class="paso">
+
+                    <div class="paso-numero">
+                        3
+                    </div>
+
+
+                    <h3>
+                        Prepara tus documentos
+                    </h3>
+
+
+                    <p>
+
+                        Reúne los documentos solicitados
+                        para realizar tu postulación.
+
+                    </p>
+
+                </div>
+
+
+
+
+                <div class="paso">
+
+                    <div class="paso-numero">
+                        4
+                    </div>
+
+
+                    <h3>
+                        Envía tu solicitud
+                    </h3>
+
+
+                    <p>
+
+                        Completa tu información y envía
+                        la solicitud antes de la fecha límite.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+
+        <!-- ==========================================
+             REQUISITOS
+        =========================================== -->
+
+        <section
+            class="seccion"
+            id="requisitos"
+        >
+
+
+            <div class="encabezado-seccion">
+
+                <span class="etiqueta-seccion">
+                    REQUISITOS
+                </span>
+
+
+                <h2>
+                    Requisitos generales
+                </h2>
+
+
+                <p>
+
+                    Antes de aplicar, verifica que cuentas
+                    con la documentación necesaria.
+
+                </p>
+
+            </div>
+
+
+
+            <div class="requisitos-contenido">
+
+
+                <div class="requisitos-lista">
+
+
+                    <div class="requisito">
+
+                        <span>
+                            ✓
+                        </span>
+
+                        <p>
+                            Ser estudiante activo.
+                        </p>
+
+                    </div>
+
+
+
+                    <div class="requisito">
+
+                        <span>
+                            ✓
+                        </span>
+
+                        <p>
+                            Presentar documento de identificación.
+                        </p>
+
+                    </div>
+
+
+
+                    <div class="requisito">
+
+                        <span>
+                            ✓
+                        </span>
+
+                        <p>
+                            Contar con constancia de estudios.
+                        </p>
+
+                    </div>
+
+
+
+                    <div class="requisito">
+
+                        <span>
+                            ✓
+                        </span>
+
+                        <p>
+
+                            Cumplir con el promedio académico
+                            requerido por cada convocatoria.
+
+                        </p>
+
+                    </div>
+
+
+
+                    <div class="requisito">
+
+                        <span>
+                            ✓
+                        </span>
+
+                        <p>
+
+                            Presentar los documentos solicitados
+                            dentro del período de aplicación.
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="requisitos-tarjeta">
+
+
+                    <div class="requisitos-icono">
+                        📄
+                    </div>
+
+
+                    <h3>
+                        Prepara tus documentos
+                    </h3>
+
+
+                    <p>
+
+                        Tener tus documentos preparados te
+                        permitirá completar tu solicitud
+                        de manera rápida y sencilla.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+
+        <!-- ==========================================
+             PREGUNTAS FRECUENTES
+        =========================================== -->
+
+        <section
+            class="seccion seccion-clara"
+            id="preguntas"
+        >
+
+
+            <div class="encabezado-seccion">
+
+                <span class="etiqueta-seccion">
+                    AYUDA
+                </span>
+
+
+                <h2>
+                    Preguntas frecuentes
+                </h2>
+
+
+                <p>
+
+                    Encuentra respuestas a las preguntas
+                    más comunes sobre las becas.
+
+                </p>
+
+            </div>
+
+
+
+            <div class="faq">
+
+
+                <details>
+
+                    <summary>
+                        ¿Qué es ScholarLink?
+                    </summary>
+
+
+                    <p>
+
+                        ScholarLink es una plataforma diseñada
+                        para facilitar la búsqueda y gestión
+                        de oportunidades de becas educativas.
+
+                    </p>
+
+                </details>
+
+
+
+
+                <details>
+
+                    <summary>
+                        ¿Cómo puedo solicitar una beca?
+                    </summary>
+
+
+                    <p>
+
+                        Primero debes seleccionar una convocatoria,
+                        revisar sus requisitos y posteriormente
+                        completar el proceso de postulación.
+
+                    </p>
+
+                </details>
+
+
+
+
+                <details>
+
+                    <summary>
+                        ¿Puedo aplicar a más de una beca?
+                    </summary>
+
+
+                    <p>
+
+                        Sí. Puedes consultar diferentes
+                        convocatorias y aplicar a aquellas
+                        para las que cumplas con los requisitos.
+
+                    </p>
+
+                </details>
+
+
+
+
+                <details>
+
+                    <summary>
+                        ¿Dónde puedo consultar los requisitos?
+                    </summary>
+
+
+                    <p>
+
+                        Puedes consultar los requisitos generales
+                        en esta sección y revisar los requisitos
+                        específicos dentro de cada convocatoria.
+
+                    </p>
+
+                </details>
+
+
+
+
+                <details>
+
+                    <summary>
+                        ¿Cómo sé si mi solicitud fue enviada?
+                    </summary>
+
+
+                    <p>
+
+                        Una vez completado correctamente el proceso
+                        de postulación, recibirás la confirmación
+                        correspondiente de tu solicitud.
+
+                    </p>
+
+                </details>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+
+
+    <!-- ==========================================
+         PIE DE PÁGINA
+    =========================================== -->
+
+    <footer class="footer">
+
+
+        <div class="footer-contenido">
+
+
+            <div class="footer-logo">
+
+
+                <img
+                    src="../img/logo-scholarlink.png"
+                    alt="Logo ScholarLink"
+                >
+
+
+                <div>
+
+                    <h3>
+                        ScholarLink
+                    </h3>
+
+
+                    <p>
+                        Plataforma para la Gestión Integral de Becas
+                    </p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="footer-info">
+
+                <p>
+
+                    © 2026 ScholarLink.
+                    Todos los derechos reservados.
+
+                </p>
+
+            </div>
+
+        </div>
+
+    </footer>
+
+
+
+
+    <!-- ==========================================
+         JAVASCRIPT
+    =========================================== -->
+
+    <script>
+
+
+        // ==========================================
+        // VERIFICAR USUARIO
+        // ==========================================
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            function () {
+
+
+                const usuario =
+                    localStorage.getItem("usuario");
+
+
+                const nombreUsuario =
+                    document.getElementById("nombreUsuario");
+
+
+                if (!usuario) {
+
+                    window.location.href = "index.html";
+
+                    return;
+
+                }
+
+
+                if (nombreUsuario) {
+
+                    nombreUsuario.textContent = usuario;
+
+                }
+
+            }
+        );
+
+
+
+        // ==========================================
+        // CERRAR SESIÓN
+        // ==========================================
+
+        function cerrarSesion() {
+
+
+            localStorage.removeItem("usuario");
+
+            localStorage.removeItem("token");
+
+            localStorage.removeItem("usuarioLogueado");
+
+
+            window.location.href = "index.html";
+
+        }
+
+
+
+        // ==========================================
+        // VER DETALLES DE BECA
+        // ==========================================
+
+        function verBeca(nombreBeca) {
+
+
+            alert(
+
+                "Has seleccionado la beca: " +
+                nombreBeca +
+                "\n\n" +
+                "Para consultar todos los detalles y realizar " +
+                "tu postulación, ingresa al módulo de Convocatorias."
+
+            );
+
+        }
+
+    </script>
+
+
+</body>
+
+</html>

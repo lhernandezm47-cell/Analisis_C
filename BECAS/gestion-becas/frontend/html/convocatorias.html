@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>ScholarLink - Convocatorias</title>
+
+    <link rel="stylesheet" href="../css/estilos.css">
+</head>
+
+<body>
+
+    <!-- ================= NAVBAR ================= -->
+    <header class="navbar">
+
+        <a href="dashboard.html" class="logo-becatech">
+            <img src="../img/logo-scholarlink.png" alt="Logo de ScholarLink">
+            <span><strong>Scholar</strong>Link</span>
+        </a>
+
+        <nav class="menu">
+            <a href="dashboard.html">Inicio</a>
+            <a href="convocatorias.html" class="activo">Convocatorias</a>
+            <a href="#">Mis solicitudes</a>
+            <a href="#">Perfil</a>
+        </nav>
+
+        <div class="usuario-menu">
+            <span id="nombreUsuario">Usuario</span>
+            <button onclick="cerrarSesion()" class="btn-salir">
+                Cerrar sesión
+            </button>
+        </div>
+
+    </header>
+
+
+    <!-- ================= ENCABEZADO ================= -->
+    <section class="convocatorias-header">
+
+        <div>
+            <h1>Convocatorias</h1>
+
+            <p>
+                Encuentra oportunidades de becas y elige la que mejor
+                se adapte a tus metas académicas y profesionales.
+            </p>
+        </div>
+
+    </section>
+
+
+    <!-- ================= CONTENIDO ================= -->
+    <main class="convocatorias-container">
+
+        <!-- FILTROS -->
+        <section class="filtros">
+
+            <div class="filtro-grupo">
+
+                <label for="buscar">Buscar convocatoria</label>
+
+                <input
+                    type="text"
+                    id="buscar"
+                    placeholder="Escribe el nombre de una beca..."
+                >
+
+            </div>
+
+
+            <div class="filtro-grupo">
+
+                <label for="categoria">Categoría</label>
+
+                <select id="categoria">
+
+                    <option value="todas">
+                        Todas las categorías
+                    </option>
+
+                    <option value="excelencia">
+                        Excelencia académica
+                    </option>
+
+                    <option value="tecnologia">
+                        Tecnología
+                    </option>
+
+                    <option value="deporte">
+                        Deportes
+                    </option>
+
+                    <option value="social">
+                        Desarrollo comunitario
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="filtro-grupo">
+
+                <label for="estado">Estado</label>
+
+                <select id="estado">
+
+                    <option value="todos">
+                        Todos
+                    </option>
+
+                    <option value="abierta">
+                        Abiertas
+                    </option>
+
+                    <option value="proxima">
+                        Próximamente
+                    </option>
+
+                    <option value="cerrada">
+                        Cerradas
+                    </option>
+
+                </select>
+
+            </div>
+
+        </section>
+
+
+        <!-- RESULTADOS -->
+        <div class="convocatorias-info">
+
+            <h2>Oportunidades disponibles</h2>
+
+            <span id="contador">
+                4 convocatorias encontradas
+            </span>
+
+        </div>
+
+
+        <!-- TARJETAS -->
+        <section id="listaConvocatorias" class="convocatorias-grid">
+
+
+            <!-- BECA 1 -->
+            <article
+                class="convocatoria-card"
+                data-categoria="excelencia"
+                data-estado="abierta"
+            >
+
+                <div class="convocatoria-superior">
+
+                    <span class="etiqueta abierta">
+                        Abierta
+                    </span>
+
+                    <span class="categoria">
+                        Excelencia académica
+                    </span>
+
+                </div>
+
+
+                <h3>
+                    Beca Excelencia Académica
+                </h3>
+
+
+                <p class="institucion">
+                    Universidad Nacional
+                </p>
+
+
+                <p>
+                    Programa dirigido a estudiantes con alto
+                    rendimiento académico.
+                </p>
+
+
+                <div class="datos-convocatoria">
+
+                    <div>
+                        <strong>Inicio</strong>
+                        <span>01/09/2026</span>
+                    </div>
+
+                    <div>
+                        <strong>Cierre</strong>
+                        <span>30/10/2026</span>
+                    </div>
+
+                </div>
+
+
+                <div class="beneficio">
+                    Cobertura completa
+                </div>
+
+
+                <button
+                    class="btn-beca"
+                    onclick="verDetalles('excelencia')"
+                >
+                    Ver detalles
+                </button>
+
+            </article>
+
+
+            <!-- BECA 2 -->
+            <article
+                class="convocatoria-card"
+                data-categoria="tecnologia"
+                data-estado="abierta"
+            >
+
+                <div class="convocatoria-superior">
+
+                    <span class="etiqueta abierta">
+                        Abierta
+                    </span>
+
+                    <span class="categoria">
+                        Tecnología
+                    </span>
+
+                </div>
+
+
+                <h3>
+                    Beca Innovación Tecnológica
+                </h3>
+
+
+                <p class="institucion">
+                    Instituto Tecnológico Nacional
+                </p>
+
+
+                <p>
+                    Apoyo para estudiantes interesados en
+                    tecnología, programación e innovación.
+                </p>
+
+
+                <div class="datos-convocatoria">
+
+                    <div>
+                        <strong>Inicio</strong>
+                        <span>15/09/2026</span>
+                    </div>
+
+                    <div>
+                        <strong>Cierre</strong>
+                        <span>15/11/2026</span>
+                    </div>
+
+                </div>
+
+
+                <div class="beneficio">
+                    Apoyo económico
+                </div>
+
+
+                <button
+                    class="btn-beca"
+                    onclick="verDetalles('tecnologia')"
+                >
+                    Ver detalles
+                </button>
+
+            </article>
+
+
+            <!-- BECA 3 -->
+            <article
+                class="convocatoria-card"
+                data-categoria="deporte"
+                data-estado="proxima"
+            >
+
+                <div class="convocatoria-superior">
+
+                    <span class="etiqueta proxima">
+                        Próximamente
+                    </span>
+
+                    <span class="categoria">
+                        Deportes
+                    </span>
+
+                </div>
+
+
+                <h3>
+                    Beca Talento Deportivo
+                </h3>
+
+
+                <p class="institucion">
+                    Fundación Deportiva Nacional
+                </p>
+
+
+                <p>
+                    Dirigida a jóvenes con talento y trayectoria
+                    destacada en diferentes disciplinas deportivas.
+                </p>
+
+
+                <div class="datos-convocatoria">
+
+                    <div>
+                        <strong>Inicio</strong>
+                        <span>01/11/2026</span>
+                    </div>
+
+                    <div>
+                        <strong>Cierre</strong>
+                        <span>20/12/2026</span>
+                    </div>
+
+                </div>
+
+
+                <div class="beneficio">
+                    Apoyo educativo
+                </div>
+
+
+                <button
+                    class="btn-beca"
+                    onclick="verDetalles('deporte')"
+                >
+                    Ver detalles
+                </button>
+
+            </article>
+
+
+            <!-- BECA 4 -->
+            <article
+                class="convocatoria-card"
+                data-categoria="social"
+                data-estado="abierta"
+            >
+
+                <div class="convocatoria-superior">
+
+                    <span class="etiqueta abierta">
+                        Abierta
+                    </span>
+
+                    <span class="categoria">
+                        Desarrollo comunitario
+                    </span>
+
+                </div>
+
+
+                <h3>
+                    Beca Desarrollo Comunitario
+                </h3>
+
+
+                <p class="institucion">
+                    Fundación para el Desarrollo Social
+                </p>
+
+
+                <p>
+                    Programa para estudiantes comprometidos con
+                    proyectos de beneficio comunitario.
+                </p>
+
+
+                <div class="datos-convocatoria">
+
+                    <div>
+                        <strong>Inicio</strong>
+                        <span>05/10/2026</span>
+                    </div>
+
+                    <div>
+                        <strong>Cierre</strong>
+                        <span>05/12/2026</span>
+                    </div>
+
+                </div>
+
+
+                <div class="beneficio">
+                    Apoyo económico
+                </div>
+
+
+                <button
+                    class="btn-beca"
+                    onclick="verDetalles('social')"
+                >
+                    Ver detalles
+                </button>
+
+            </article>
+
+        </section>
+
+    </main>
+
+
+    <!-- ================= MODAL ================= -->
+
+    <div id="modalDetalles" class="modal">
+
+        <div class="modal-contenido">
+
+            <button
+                class="cerrar-modal"
+                onclick="cerrarModal()"
+            >
+                ×
+            </button>
+
+            <div id="contenidoModal"></div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================= FOOTER ================= -->
+
+    <footer class="footer">
+
+        <div class="footer-logo">
+
+            <img
+                src="../img/logo-scholarlink.png"
+                alt="Logo de ScholarLink"
+            >
+
+            <span>
+                <strong>Scholar</strong>Link
+            </span>
+
+        </div>
+
+        <p>
+            © 2026 ScholarLink. Plataforma para la Gestión Integral de Becas.
+        </p>
+
+    </footer>
+
+
+    <script src="../js/convocatorias.js"></script>
+
+</body>
+</html>
