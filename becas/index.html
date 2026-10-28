@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plataforma Nacional para la Gestión Integral de Becas</title>
+<link rel="stylesheet" href="css/styles.css"></head><body>
+<section id="login"><div class="lg">
+<h1>Plataforma Nacional para la Gestión Integral de Becas</h1>
+<p class="mut">Acceso restringido a usuarios autorizados.</p>
+<div class="tabs"><button type="button" data-t="personal" class="on">Personal</button><button type="button" data-t="estudiante">Estudiantes</button></div>
+<form id="lf"><label>Usuario<input name="u" autocomplete="username" required></label>
+<label>Contraseña<input name="p" type="password" autocomplete="current-password" required></label>
+<button>Ingresar</button><p id="le" role="alert"></p></form></div></section>
+<div id="app" hidden>
+<header><h1 id="ttl"></h1><div><span id="me"></span> <button id="out">Cerrar sesión</button> <button id="reset" title="Borra los datos guardados">Restablecer datos</button></div></header>
+<div class="wrap"><nav id="nav"></nav><main id="main"></main></div></div>
+<div id="toast" role="status"></div>
+<script src="js/core.js"></script><script src="js/ui.js"></script></body></html>
