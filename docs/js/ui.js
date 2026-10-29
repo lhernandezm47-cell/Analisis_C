@@ -1,11 +1,8 @@
-// --- BLINDAJE DE SEGURIDAD PARA AUTH ---
-window.Auth = window.Auth || {
-    actual: () => JSON.parse(localStorage.getItem('usuario_actual') || 'null'),
-    login: (user) => localStorage.setItem('usuario_actual', JSON.stringify(user)),
-    logout: () => localStorage.removeItem('usuario_actual')
-};
-
 'use strict';
+
+// CORREGIDO: se eliminó el bloque "BLINDAJE DE SEGURIDAD PARA AUTH".
+// La clase Auth real vive en core.js (cargado antes que este archivo).
+
 let U = Auth.actual(), V = 'panel', CODE = '';
 const NAV = [['panel', 'Panel', 'admin evaluador autoridad estudiante auditor'], ['convs', 'Convocatorias', 'admin estudiante evaluador autoridad'], ['ests', 'Estudiantes', 'admin'], ['comites', 'Comités evaluadores', 'admin'],
   ['sols', 'Solicitudes', 'admin evaluador autoridad estudiante'], ['evals', 'Evaluaciones', 'admin evaluador autoridad'], ['estado', 'Consultar beca', 'admin estudiante evaluador autoridad'],
@@ -53,29 +50,38 @@ const VIEWS = {
   pat: () => `<h2>Arquitectura</h2><p>Patrones de diseño aplicados con Supabase.</p>`
 };
 
-/* ===== Carga Sincrónica Optimizada y Ordenada desde Supabase ===== */
+/* ===== Carga desde Supabase ===== */
 async function cargarDatosSupabase() {
   try {
-    // Bloque 1: Tablas principales y catálogos
-    const convRes = await supabaseClient.from('convocatorias').select('*');
-    const estRes = await supabaseClient.from('estudiantes').select('*');
-    const userRes = await supabaseClient.from('usuarios').select('*');
-    const comRes = await supabaseClient.from('comites').select('*');
-    const comMiembrosRes = await supabaseClient.from('comite_miembros').select('*');
+    // Todas las consultas en paralelo (más rápido que una por una)
+    const [
+      convRes, estRes, userRes, comRes, comMiembrosRes,
+      solRes, aprobRes, evalRes, docRes, histRes,
+      notifRes, notifEnvRes, auditRes
+    ] = await Promise.all([
+      supabaseClient.from('convocatorias').select('*'),
+      supabaseClient.from('estudiantes').select('*'),
+      supabaseClient.from('usuarios').select('*'),
+      supabaseClient.from('comites').select('*'),
+      supabaseClient.from('comite_miembros').select('*'),
+      supabaseClient.from('solicitudes').select('*'),
+      supabaseClient.from('aprobaciones').select('*'),
+      supabaseClient.from('evaluaciones').select('*'),
+      supabaseClient.from('documentos').select('*'),
+      supabaseClient.from('historial_estados').select('*'),
+      supabaseClient.from('notificaciones').select('*'),
+      supabaseClient.from('notificacion_envios').select('*'),
+      supabaseClient.from('auditoria').select('*')
+    ]);
 
-    // Bloque 2: Solicitudes y registros operativos
-    const solRes = await supabaseClient.from('solicitudes').select('*');
-    const aprobRes = await supabaseClient.from('aprobaciones').select('*');
-    const evalRes = await supabaseClient.from('evaluaciones').select('*');
-    const docRes = await supabaseClient.from('documentos').select('*');
-    const histRes = await supabaseClient.from('historial_estados').select('*');
+    // Aviso claro si no hay conexión con Supabase
+    const fallo = [convRes, estRes, userRes, solRes].find(r => r.error);
+    if (fallo) {
+      console.error('Supabase:', fallo.error.message);
+      toast('No se pudo conectar con Supabase. Revisa la URL y la clave en core.js', 1);
+    }
 
-    // Bloque 3: Notificaciones y auditoría
-    const notifRes = await supabaseClient.from('notificaciones').select('*');
-    const notifEnvRes = await supabaseClient.from('notificacion_envios').select('*');
-    const auditRes = await supabaseClient.from('auditoria').select('*');
-
-    if (!convRes.error && convRes.data) D().convs = convRes.data.map(c => ({ id: 'c' + c.id, nombre: c.nombre, nivel: c.nivel, cupo: c.cupo, cierre: c.fecha_cierre?.slice(0, 10), comite: c.comite_id }));
+    if (!convRes.error && convRes.data) D().convs = convRes.data.map(c => ({ id: 'c' + c.id, nombre: c.nombre, nivel: c.nivel, cupo: c.cupo, cierre: c.fecha_cierre?.slice(0, 10), comite: 'k' + c.comite_id }));
     if (!estRes.error && estRes.data) D().ests = estRes.data.map(e => ({ id: 'e' + e.id, nombre: e.nombre, correo: e.correo, nivel: e.nivel, inst: e.institucion }));
     if (!userRes.error && userRes.data) D().users = userRes.data.map(u => ({ id: 'u' + u.id, usuario: u.usuario, nombre: u.nombre, rol: u.rol }));
     if (!comRes.error && comRes.data) {
@@ -111,31 +117,40 @@ async function cargarDatosSupabase() {
         est: 'e' + n.estudiante_id,
         evento: n.evento,
         msg: n.mensaje,
-        canales: envs.filter(e => e.notificacion_id === n.id).map(e => ({ c: e.canal, ok: e.resultado === 'enviada', err: e.error_detalles }))
+        // CORREGIDO: core.js guarda 'exito', no 'enviada'
+        canales: envs.filter(e => e.notificacion_id === n.id).map(e => ({ c: e.canal, ok: e.resultado === 'exito', err: e.error_detalles }))
       }));
     }
 
     if (!auditRes.error && auditRes.data) {
-      D().audit = auditRes.data.map(a => ({ fecha: a.fecha_hora, usuario: a.nombre_usuario, op: a.operacion, sol: a.solicitud_id ? 'S' + a.solicitud_id : '', det: a.dato_modificado ? JSON.parse(a.dato_modificado) : {} }));
+      D().audit = auditRes.data.map(a => {
+        let o = {};
+        try { o = a.dato_modificado ? JSON.parse(a.dato_modificado) : {}; } catch { o = { raw: a.dato_modificado }; }
+        const firmado = o && typeof o === 'object' && '__h' in o;
+        return { fecha: a.fecha_hora, usuario: a.nombre_usuario, op: a.operacion, sol: a.solicitud_id ? 'S' + a.solicitud_id : '', det: firmado ? o.d : o, h: firmado ? o.__h : null };
+      }).sort((x, y) => new Date(x.fecha) - new Date(y.fecha));
     }
-  } catch (err) { console.error("Error sincronizando:", err); }
+
+    S();
+  } catch (err) { console.error('Error sincronizando:', err); }
 }
 
 function render() {
+  if (!U) return;
   if (!NAV.some(n => n[0] === V && n[2].includes(U.rol))) V = 'panel';
   $('#nav').innerHTML = NAV.filter(n => n[2].includes(U.rol)).map(n => `<a href="#" data-v="${n[0]}" class="${n[0] === V ? 'on' : ''}">${n[1]}</a>`).join('');
   $('#main').innerHTML = VIEWS[V]();
 }
 
-const run = async fn => { 
-  try { 
-    await fn(); 
-    await cargarDatosSupabase(); 
-    toast('Operación realizada con éxito'); 
-  } catch (x) { 
-    toast(x.message, 1); 
-  } 
-  render(); 
+const run = async fn => {
+  try {
+    await fn();
+    await cargarDatosSupabase();
+    toast('Operación realizada con éxito');
+  } catch (x) {
+    toast(x.message, 1);
+  }
+  render();
 };
 
 const FORMS = {
@@ -163,27 +178,27 @@ document.addEventListener('change', e => { const id = e.target.dataset.doc; if (
 
 const boot = async () => {
   U = Auth.actual(); const on = !!U;
-  $('#login').hidden = on; $('#app').hidden = !on; 
+  $('#login').hidden = on; $('#app').hidden = !on;
   if (!on) return;
-  await cargarDatosSupabase(); 
-  $('#me').textContent = U.nombre; 
+  await cargarDatosSupabase();
+  $('#me').textContent = U.nombre;
   V = 'panel'; render();
 };
 
 let TIPO = 'personal';
 document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { TIPO = b.dataset.t; document.querySelectorAll('[data-t]').forEach(x => x.classList.toggle('on', x === b)); $('#le').textContent = ''; $('#lf').reset(); });
 
-$('#lf').onsubmit = async e => { 
-  e.preventDefault(); 
-  const f = new FormData(e.target); 
-  try { 
-    await Auth.login(f.get('u').trim(), f.get('p'), TIPO); 
-    $('#lf').reset(); $('#le').textContent = ''; 
-    await boot(); 
-  } catch (x) { 
-    $('#le').textContent = x.message; 
-    $('#lf').p.value = ''; 
-  } 
+$('#lf').onsubmit = async e => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  try {
+    await Auth.login(f.get('u').trim(), f.get('p'), TIPO);
+    $('#lf').reset(); $('#le').textContent = '';
+    await boot();
+  } catch (x) {
+    $('#le').textContent = x.message;
+    $('#lf').p.value = '';
+  }
 };
 
 $('#out').onclick = () => { Auth.salir(); boot(); };
