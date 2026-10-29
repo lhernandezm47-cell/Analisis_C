@@ -110,9 +110,18 @@ const Becas = {
     need(u, 'admin'); 
     if (!c.nombre || !(c.cupo > 0)) throw Error('Nombre y cupo válidos son obligatorios');
     
+    // Convertir el ID del comité a número entero de forma segura
+    const comiteId = parseInt(String(c.comite).replace(/\D/g, '')) || 1;
+
     const { error } = await supabaseClient
       .from('convocatorias')
-      .insert([{ nombre: c.nombre, nivel: c.nivel, cupo: c.cupo, fecha_cierre: c.cierre, comite_id: c.comite }]);
+      .insert([{ 
+        nombre: c.nombre, 
+        nivel: c.nivel, 
+        cupo: +c.cupo, 
+        fecha_cierre: c.cierre, 
+        comite_id: comiteId 
+      }]);
 
     if (error) {
       console.error("Error Supabase convocatorias:", error);
@@ -140,7 +149,6 @@ const Becas = {
     need(u, 'admin', 'estudiante'); if (u.rol === 'estudiante') f.est = u.est;
     if (!(f.monto > 0)) throw Error('El monto debe ser mayor que cero');
 
-    // Parsear IDs eliminando las letras prefijo ('e1' -> 1)
     const estId = parseInt(String(f.est).replace(/\D/g, '')) || 1;
     const convId = parseInt(String(f.conv).replace(/\D/g, '')) || 1;
 
