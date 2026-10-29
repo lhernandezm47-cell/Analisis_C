@@ -105,6 +105,21 @@ const boot = () => {
 };
 let TIPO = 'personal';
 document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { TIPO = b.dataset.t; document.querySelectorAll('[data-t]').forEach(x => x.classList.toggle('on', x === b)); $('#le').textContent = ''; $('#lf').reset(); });
-$('#lf').onsubmit = e => { e.preventDefault(); const f = new FormData(e.target); try { Auth.login(f.get('u').trim(), f.get('p'), TIPO); $('#lf').reset(); $('#le').textContent = ''; boot(); } catch (x) { $('#le').textContent = x.message; $('#lf').p.value = ''; } };
+
+// Función de login asíncrona actualizada
+$('#lf').onsubmit = async e => { 
+  e.preventDefault(); 
+  const f = new FormData(e.target); 
+  try { 
+    await Auth.login(f.get('u').trim(), f.get('p'), TIPO); 
+    $('#lf').reset(); 
+    $('#le').textContent = ''; 
+    boot(); 
+  } catch (x) { 
+    $('#le').textContent = x.message; 
+    $('#lf').p.value = ''; 
+  } 
+};
+
 $('#out').onclick = () => { Auth.salir(); boot(); };
 boot();
