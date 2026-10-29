@@ -41,11 +41,10 @@ const SECRETO = /pass|token|secret|clave|i/;
 const limpiar = o => JSON.parse(JSON.stringify(o ?? null, (k, v) => SECRETO.test(k) ? undefined : v));
 
 /* ==========================================================================
-   3. GESTIÓN DE AUTENTICACIÓN (Requerido por ui.js)
+   3. GESTIÓN DE AUTENTICACIÓN (Requerido por ui.js con Auth.actual)
    ========================================================================== */
 class Auth {
-    static current() {
-        // Recupera el usuario activo de la sesión o localStorage si tu app lo usa
+    static actual() {
         return JSON.parse(localStorage.getItem('usuario_actual') || 'null');
     }
     static login(user) {
@@ -87,7 +86,6 @@ async function registrarIntentoAcceso(username, exitoso) {
    ========================================================================== */
 async function registrarNotificacionConEnvios(solicitudId, estudianteId, evento, mensajeTexto, simularFalloEmail = false) {
     try {
-        // A. Insertar la notificación principal
         const { data: notifData, error: notifError } = await supabaseClient
             .from('notificaciones')
             .insert([
@@ -107,23 +105,12 @@ async function registrarNotificacionConEnvios(solicitudId, estudianteId, evento,
             return null;
         }
 
-        // B. Insertar los detalles en notificacion_envios asociados al ID recién obtenido
         const estadoEmail = simularFalloEmail ? 'fallo' : 'exito';
         const errorEmail = simularFalloEmail ? 'Servidor SMTP no disponible' : null;
 
         const canalesEnvio = [
-            { 
-                notificacion_id: notifData.id, 
-                canal: 'app', 
-                resultado: 'exito', 
-                error_detalles: null 
-            },
-            { 
-                notificacion_id: notifData.id, 
-                canal: 'email', 
-                resultado: estadoEmail, 
-                error_detalles: errorEmail 
-            }
+            { notificacion_id: notifData.id, canal: 'app', resultado: 'exito', error_detalles: null },
+            { notificacion_id: notifData.id, canal: 'email', resultado: estadoEmail, error_detalles: errorEmail }
         ];
 
         const { data: enviosData, error: enviosError } = await supabaseClient
@@ -133,8 +120,6 @@ async function registrarNotificacionConEnvios(solicitudId, estudianteId, evento,
 
         if (enviosError) {
             console.error('Error al insertar en notificacion_envios:', enviosError.message);
-        } else {
-            console.log('Notificación y canales registrados:', { notifData, enviosData });
         }
 
         return notifData;
