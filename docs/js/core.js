@@ -183,7 +183,7 @@ const Auth = {
 
     const u = usersList.find(x => (tipo === 'estudiante') === (x.rol === 'estudiante'));
 
-    if (!u || u.hash !== sha256(SAL + k + '|' + pw)) {
+    if (!u || u.contrasena_hash !== sha256(SAL + k + '|' + pw)) {
       this.registrarFallo(k);
       throw Error('Usuario o contraseña incorrectos');
     }
