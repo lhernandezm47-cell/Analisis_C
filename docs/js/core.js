@@ -64,9 +64,14 @@ async function sha256Hex(texto) {
    ========================================================================== */
 async function registrarIntentoAcceso(username, exitoso) {
     try {
+        // Columnas reales de la tabla: usuario_escrito, fecha_hora, resultado
         const { error } = await supabaseClient
             .from('intentos_acceso')
-            .insert([{ usuario: username, exitoso: exitoso, fecha: new Date().toISOString() }]);
+            .insert([{
+                usuario_escrito: username || '(vacío)',
+                fecha_hora: new Date().toISOString(),
+                resultado: exitoso ? 'exitoso' : 'fallido'
+            }]);
 
         if (error) {
             console.error('Error al registrar intento de acceso:', error.message);
@@ -90,7 +95,7 @@ class Auth {
         const { data, error } = await supabaseClient
             .from('usuarios')
             .select('*')
-            .eq('usuario', username)
+            .ilike('usuario', String(username).replace(/[%_\\]/g, m => '\\' + m))
             .maybeSingle();
 
         if (error) {
