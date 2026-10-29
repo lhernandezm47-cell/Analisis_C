@@ -41,17 +41,46 @@ const SECRETO = /pass|token|secret|clave|i/;
 const limpiar = o => JSON.parse(JSON.stringify(o ?? null, (k, v) => SECRETO.test(k) ? undefined : v));
 
 /* ==========================================================================
-   NUEVA FUNCIÓN: Registro sincronizado de notificaciones y canales
+   1. REGISTRO DE INTENTOS DE ACCESO (tabla 'intentos_acceso')
    ========================================================================== */
-async function registrarNotificacionConEnvios(solicitudId, mensajeTexto, simularFalloEmail = false) {
+async function registrarIntentoAcceso(username, exitoso) {
     try {
-        // 1. Insertar la notificación principal y obtener el registro creado con su ID
+        const { data, error } = await supabaseClient
+            .from('intentos_acceso')
+            .insert([
+                { 
+                    usuario: username, 
+                    exitoso: exitoso, 
+                    fecha: new Date().toISOString() 
+                }
+            ])
+            .select();
+
+        if (error) {
+            console.error('Error al registrar intento de acceso:', error.message);
+        } else {
+            console.log('Intento de acceso registrado:', data);
+        }
+    } catch (err) {
+        console.error('Excepción en registrarIntentoAcceso:', err);
+    }
+}
+
+/* ==========================================================================
+   2. REGISTRO SINCRONIZADO DE NOTIFICACIONES Y CANALES
+   ========================================================================== */
+async function registrarNotificacionConEnvios(solicitudId, estudianteId, evento, mensajeTexto, simularFalloEmail = false) {
+    try {
+        // A. Insertar la notificación principal
         const { data: notifData, error: notifError } = await supabaseClient
             .from('notificaciones')
             .insert([
                 { 
-                    solicitud_id: solicitudId, 
-                    mensaje: mensajeTexto 
+                    solicitud_id: solicitudId,
+                    estudiante_id: estudianteId,
+                    evento: evento || 'CAMBIO_ESTADO',
+                    mensaje: mensajeTexto,
+                    fecha: new Date().toISOString()
                 }
             ])
             .select()
@@ -62,7 +91,7 @@ async function registrarNotificacionConEnvios(solicitudId, mensajeTexto, simular
             return null;
         }
 
-        // 2. Definir los resultados de los canales (simulando estado de app y email)
+        // B. Insertar los detalles en notificacion_envios asociados al ID recién obtenido
         const estadoEmail = simularFalloEmail ? 'fallo' : 'exito';
         const errorEmail = simularFalloEmail ? 'Servidor SMTP no disponible' : null;
 
@@ -81,7 +110,6 @@ async function registrarNotificacionConEnvios(solicitudId, mensajeTexto, simular
             }
         ];
 
-        // 3. Insertar los registros detallados en la tabla notificacion_envios
         const { data: enviosData, error: enviosError } = await supabaseClient
             .from('notificacion_envios')
             .insert(canalesEnvio)
@@ -90,10 +118,7 @@ async function registrarNotificacionConEnvios(solicitudId, mensajeTexto, simular
         if (enviosError) {
             console.error('Error al insertar en notificacion_envios:', enviosError.message);
         } else {
-            console.log('Notificación y detalles de envío registrados correctamente:', {
-                notificacion: notifData,
-                envios: enviosData
-            });
+            console.log('Notificación y canales registrados:', { notifData, enviosData });
         }
 
         return notifData;
