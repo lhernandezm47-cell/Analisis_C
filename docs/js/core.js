@@ -338,8 +338,21 @@ window.Becas = {
         Becas._rol(user, ['admin', 'estudiante']);
         const s = Becas._sol(id);
         if (user.rol === 'estudiante' && s.est !== user.est) throw new Error('Solo puede adjuntar a sus propias solicitudes');
+        if (f.size > 10 * 1024 * 1024) throw new Error('El archivo no debe pasar de 10 MB');
+
+        // Ruta dentro del bucket 'documentos' de Supabase Storage: <id_solicitud>/<fecha>_<nombre>
+        const limpio = f.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.\-]+/g, '_');
+        const ruta = idNum(id) + '/' + Date.now() + '_' + limpio;
+
+        if (f.file) {
+            const { error: eUp } = await supabaseClient.storage
+                .from('documentos')
+                .upload(ruta, f.file, { contentType: f.file.type || 'application/octet-stream' });
+            chk('No se pudo subir el archivo al almacenamiento', eUp);
+        }
+
         const { error } = await supabaseClient.from('documentos').insert([{
-            solicitud_id: idNum(id), nombre_archivo: f.name, tamano: f.size
+            solicitud_id: idNum(id), nombre_archivo: f.name, tamano: f.size, ruta
         }]);
         chk('No se pudo adjuntar el documento', error);
         await AuditLog.registrar(user, 'ADJUNTAR_DOCUMENTO', id, { nombre: f.name, tamano: f.size });
