@@ -179,3 +179,211 @@ async function registrarNotificacionConEnvios(solicitudId, estudianteId, evento,
         return null;
     }
 }
+
+/* ==========================================================================
+   LÓGICA DE NEGOCIO (guarda todo en Supabase)
+   Define: AuditLog, PolicyFactory, sigPaso y Becas, que usa ui.js
+   ========================================================================== */
+const idNum = id => parseInt(String(id).replace(/\D/g, ''), 10);
+const chk = (contexto, error) => { if (error) throw new Error(contexto + ': ' + error.message); };
+
+/* ----- Auditoría (tabla 'auditoria') ----- */
+window.AuditLog = {
+    firma(usuario, op, sol, det) { return hash(JSON.stringify([usuario, op, sol, det])); },
+
+    async registrar(user, op, solId, det) {
+        try {
+            const d = limpiar(det) || {};
+            const sol = solId ? 'S' + idNum(solId) : '';
+            const h = AuditLog.firma(user.nombre, op, sol, d);
+            const { error } = await supabaseClient.from('auditoria').insert([{
+                nombre_usuario: user.nombre,
+                operacion: op,
+                solicitud_id: solId ? idNum(solId) : null,
+                fecha_hora: new Date().toISOString(),
+                dato_modificado: JSON.stringify({ d, __h: h })
+            }]);
+            if (error) console.error('Auditoría:', error.message);
+        } catch (err) {
+            console.error('Auditoría:', err);
+        }
+    },
+
+    // true si ningún registro fue alterado (los registros viejos sin huella se aceptan)
+    verificar() {
+        return (D().audit || []).every(a => !a.h || a.h === AuditLog.firma(a.usuario, a.op, a.sol, a.det));
+    }
+};
+
+/* ----- Políticas de aprobación ----- */
+window.PolicyFactory = {
+    // Monto <= LIMITE: solo aprueba el comité. Monto > LIMITE: comité + autoridad.
+    para(s) {
+        const mayor = Number(s.monto) > LIMITE;
+        const pasos = [{ tipo: 'Comité', rol: 'evaluador' }];
+        if (mayor) pasos.push({ tipo: 'Autoridad', rol: 'autoridad' });
+        return {
+            nombre: mayor ? 'Mayor monto' : 'Estándar',
+            pasos,
+            check(user, sol, paso) {
+                if (!paso) throw new Error('La solicitud no tiene aprobaciones pendientes');
+                if (user.rol !== paso.rol) throw new Error('Esta aprobación le corresponde al rol: ' + paso.rol);
+                if ((sol.aprob || []).some(a => a.tipo === paso.tipo && a.userId === user.id)) throw new Error('Ya registró esta aprobación');
+                if (paso.tipo === 'Comité') {
+                    const conv = (D().convs || []).find(c => c.id === sol.conv);
+                    const com = (D().comites || []).find(k => k.id === conv?.comite);
+                    if (com && com.miembros.length && !com.miembros.includes(user.id)) throw new Error('Usted no pertenece al comité de esta convocatoria');
+                }
+            }
+        };
+    }
+};
+
+// Primer paso que todavía no tiene una aprobación "Aprobada"
+window.sigPaso = (pol, s) =>
+    pol.pasos.find(p => !(s.aprob || []).some(a => a.tipo === p.tipo && a.resultado === 'Aprobada')) || null;
+
+/* ----- Operaciones principales ----- */
+window.Becas = {
+    _rol(user, roles) {
+        if (!user || !roles.includes(user.rol)) throw new Error('Su rol no tiene permiso para esta operación');
+    },
+    _sol(id) {
+        const s = (D().sols || []).find(x => x.id === id);
+        if (!s) throw new Error('Solicitud no encontrada');
+        return s;
+    },
+
+    async crearConv(user, d) {
+        Becas._rol(user, ['admin']);
+        if (!String(d.nombre || '').trim()) throw new Error('Escriba el nombre de la convocatoria');
+        if (!(d.cupo > 0)) throw new Error('El cupo debe ser mayor a 0');
+        if (!d.cierre) throw new Error('Indique la fecha de cierre');
+        const { data, error } = await supabaseClient.from('convocatorias').insert([{
+            nombre: d.nombre.trim(),
+            nivel: d.nivel,
+            cupo: d.cupo,
+            fecha_cierre: d.cierre,
+            comite_id: d.comite ? idNum(d.comite) : null
+        }]).select().single();
+        chk('No se pudo crear la convocatoria', error);
+        await AuditLog.registrar(user, 'CREAR_CONVOCATORIA', null, { id: data.id, nombre: data.nombre, cupo: data.cupo });
+    },
+
+    async crearEst(user, d) {
+        Becas._rol(user, ['admin']);
+        if (!String(d.nombre || '').trim()) throw new Error('Escriba el nombre del estudiante');
+        const { data, error } = await supabaseClient.from('estudiantes').insert([{
+            nombre: d.nombre.trim(),
+            correo: d.correo.trim(),
+            nivel: d.nivel,
+            institucion: d.inst || ''
+        }]).select().single();
+        chk('No se pudo registrar al estudiante', error);
+        await AuditLog.registrar(user, 'CREAR_ESTUDIANTE', null, { id: data.id, nombre: data.nombre });
+    },
+
+    async crearComite(user, d) {
+        Becas._rol(user, ['admin']);
+        if (!String(d.nombre || '').trim()) throw new Error('Escriba el nombre del comité');
+        const { data, error } = await supabaseClient.from('comites').insert([{ nombre: d.nombre.trim() }]).select().single();
+        chk('No se pudo crear el comité', error);
+        if ((d.miembros || []).length) {
+            const filas = d.miembros.map(m => ({ comite_id: data.id, usuario_id: idNum(m) }));
+            const { error: e2 } = await supabaseClient.from('comite_miembros').insert(filas);
+            chk('El comité se creó, pero fallaron los miembros', e2);
+        }
+        await AuditLog.registrar(user, 'CREAR_COMITE', null, { id: data.id, nombre: data.nombre, miembros: d.miembros || [] });
+    },
+
+    async crearSol(user, d) {
+        Becas._rol(user, ['admin', 'estudiante']);
+        const estId = user.rol === 'estudiante' ? user.est : d.est;
+        if (!estId) throw new Error('Su usuario no está vinculado a un estudiante. Pida al administrador que lo asocie.');
+        const monto = Number(d.monto);
+        if (!(monto > 0)) throw new Error('El monto debe ser mayor a 0');
+        const conv = (D().convs || []).find(c => c.id === d.conv);
+        if (!conv) throw new Error('Seleccione una convocatoria');
+        if (conv.cierre && conv.cierre < now().slice(0, 10)) throw new Error('La convocatoria ya cerró');
+        const { data, error } = await supabaseClient.from('solicitudes').insert([{
+            estudiante_id: idNum(estId),
+            convocatoria_id: idNum(conv.id),
+            monto,
+            descripcion: String(d.desc || '').trim(),
+            estado: 'Enviada'
+        }]).select().single();
+        chk('No se pudo enviar la solicitud', error);
+        await supabaseClient.from('historial_estados').insert([{
+            solicitud_id: data.id, estado: 'Enviada', fecha: now(), usuario_o_sistema: user.nombre
+        }]);
+        await registrarNotificacionConEnvios(data.id, data.estudiante_id, 'CAMBIO_ESTADO',
+            'Su solicitud S' + data.id + ' fue enviada correctamente.', D().cfg.fallo);
+        await AuditLog.registrar(user, 'CREAR_SOLICITUD', data.id, { monto, convocatoria: conv.nombre });
+    },
+
+    async editarSol(user, id, campo, valor) {
+        Becas._rol(user, ['admin', 'estudiante']);
+        const s = Becas._sol(id);
+        if (user.rol === 'estudiante' && s.est !== user.est) throw new Error('Solo puede editar sus propias solicitudes');
+        if (s.estado !== 'Enviada') throw new Error('Solo se puede editar una solicitud en estado Enviada');
+        if (campo !== 'monto') throw new Error('Campo no editable');
+        const nuevo = Number(valor);
+        if (!(nuevo > 0)) throw new Error('El monto debe ser mayor a 0');
+        const { error } = await supabaseClient.from('solicitudes').update({ monto: nuevo }).eq('id', idNum(id));
+        chk('No se pudo editar el monto', error);
+        await AuditLog.registrar(user, 'EDITAR_MONTO', id, { antes: s.monto, despues: nuevo });
+    },
+
+    async adjuntar(user, id, f) {
+        Becas._rol(user, ['admin', 'estudiante']);
+        const s = Becas._sol(id);
+        if (user.rol === 'estudiante' && s.est !== user.est) throw new Error('Solo puede adjuntar a sus propias solicitudes');
+        const { error } = await supabaseClient.from('documentos').insert([{
+            solicitud_id: idNum(id), nombre_archivo: f.name, tamano: f.size
+        }]);
+        chk('No se pudo adjuntar el documento', error);
+        await AuditLog.registrar(user, 'ADJUNTAR_DOCUMENTO', id, { nombre: f.name, tamano: f.size });
+    },
+
+    async evaluar(user, id, puntaje, coment) {
+        Becas._rol(user, ['evaluador']);
+        const s = Becas._sol(id);
+        if (['Autorizada', 'Rechazada'].includes(s.estado)) throw new Error('La solicitud ya está cerrada');
+        if (!Number.isFinite(puntaje) || puntaje < 0 || puntaje > 100) throw new Error('El puntaje debe estar entre 0 y 100');
+        const { error } = await supabaseClient.from('evaluaciones').insert([{
+            solicitud_id: idNum(id), evaluador_id: idNum(user.id), puntaje, comentario: coment || '', fecha: now()
+        }]);
+        chk('No se pudo guardar la evaluación', error);
+        await AuditLog.registrar(user, 'EVALUAR', id, { puntaje });
+        if (s.estado === 'Enviada') await Becas._estado(user, s, 'En evaluación');
+    },
+
+    async decidir(user, id, aprobar, coment) {
+        const s = Becas._sol(id);
+        if (s.estado !== 'En evaluación') throw new Error('La solicitud debe estar En evaluación');
+        const pol = PolicyFactory.para(s), paso = sigPaso(pol, s);
+        pol.check(user, s, paso);
+        const resultado = aprobar ? 'Aprobada' : 'Rechazada';
+        const { error } = await supabaseClient.from('aprobaciones').insert([{
+            solicitud_id: idNum(id), tipo: paso.tipo, usuario_id: idNum(user.id),
+            fecha_hora: now(), resultado, comentario: coment || ''
+        }]);
+        chk('No se pudo registrar la decisión', error);
+        await AuditLog.registrar(user, aprobar ? 'APROBAR' : 'RECHAZAR', id, { tipo: paso.tipo, comentario: coment || '' });
+        if (!aprobar) return Becas._estado(user, s, 'Rechazada');
+        const simulada = { aprob: [...(s.aprob || []), { tipo: paso.tipo, resultado: 'Aprobada' }] };
+        if (!sigPaso(pol, simulada)) await Becas._estado(user, s, 'Autorizada');
+    },
+
+    // Cambia el estado, deja historial, notifica y audita
+    async _estado(user, s, nuevo) {
+        const { error } = await supabaseClient.from('solicitudes').update({ estado: nuevo }).eq('id', idNum(s.id));
+        chk('No se pudo cambiar el estado', error);
+        await supabaseClient.from('historial_estados').insert([{
+            solicitud_id: idNum(s.id), estado: nuevo, fecha: now(), usuario_o_sistema: user.nombre
+        }]);
+        await registrarNotificacionConEnvios(idNum(s.id), idNum(s.est), 'CAMBIO_ESTADO',
+            'Su solicitud ' + s.id + ' cambió a estado: ' + nuevo, D().cfg.fallo);
+        await AuditLog.registrar(user, 'CAMBIO_ESTADO', s.id, { de: s.estado, a: nuevo });
+    }
+};
