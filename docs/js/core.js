@@ -6,7 +6,7 @@
    (Project URL y la clave "anon public").
    La URL anterior daba ERR_NAME_NOT_RESOLVED porque no existe ese dominio. */
 const SUPABASE_URL = 'https://ykpxznpqqrgqgxdzrxhj.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_kivMdOejAiMu7DFGK4auEA_4PGFR3w4';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrcHh6bnBxcXJncWd4ZHpyeGhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxNTA4MzgsImV4cCI6MjEwODcyNjgzOH0.J8FQaw9Zj-29JzHP0z7wx4NqWjqwYX1SrPXuNNHBjeE';
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
