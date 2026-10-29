@@ -53,24 +53,27 @@ const VIEWS = {
   pat: () => `<h2>Arquitectura</h2><p>Patrones de diseño aplicados con Supabase.</p>`
 };
 
-/* ===== Carga Sincrónica Completa desde Supabase ===== */
+/* ===== Carga Sincrónica Optimizada y Ordenada desde Supabase ===== */
 async function cargarDatosSupabase() {
   try {
-    const [convRes, estRes, userRes, solRes, comRes, comMiembrosRes, aprobRes, evalRes, docRes, histRes, notifRes, notifEnvRes, auditRes] = await Promise.all([
-      supabaseClient.from('convocatorias').select('*'),
-      supabaseClient.from('estudiantes').select('*'),
-      supabaseClient.from('usuarios').select('*'),
-      supabaseClient.from('solicitudes').select('*'),
-      supabaseClient.from('comites').select('*'),
-      supabaseClient.from('comite_miembros').select('*'),
-      supabaseClient.from('aprobaciones').select('*'),
-      supabaseClient.from('evaluaciones').select('*'),
-      supabaseClient.from('documentos').select('*'),
-      supabaseClient.from('historial_estados').select('*'),
-      supabaseClient.from('notificaciones').select('*'),
-      supabaseClient.from('notificacion_envios').select('*'),
-      supabaseClient.from('auditoria').select('*')
-    ]);
+    // Bloque 1: Tablas principales y catálogos
+    const convRes = await supabaseClient.from('convocatorias').select('*');
+    const estRes = await supabaseClient.from('estudiantes').select('*');
+    const userRes = await supabaseClient.from('usuarios').select('*');
+    const comRes = await supabaseClient.from('comites').select('*');
+    const comMiembrosRes = await supabaseClient.from('comite_miembros').select('*');
+
+    // Bloque 2: Solicitudes y registros operativos
+    const solRes = await supabaseClient.from('solicitudes').select('*');
+    const aprobRes = await supabaseClient.from('aprobaciones').select('*');
+    const evalRes = await supabaseClient.from('evaluaciones').select('*');
+    const docRes = await supabaseClient.from('documentos').select('*');
+    const histRes = await supabaseClient.from('historial_estados').select('*');
+
+    // Bloque 3: Notificaciones y auditoría
+    const notifRes = await supabaseClient.from('notificaciones').select('*');
+    const notifEnvRes = await supabaseClient.from('notificacion_envios').select('*');
+    const auditRes = await supabaseClient.from('auditoria').select('*');
 
     if (!convRes.error && convRes.data) D().convs = convRes.data.map(c => ({ id: 'c' + c.id, nombre: c.nombre, nivel: c.nivel, cupo: c.cupo, cierre: c.fecha_cierre?.slice(0, 10), comite: c.comite_id }));
     if (!estRes.error && estRes.data) D().ests = estRes.data.map(e => ({ id: 'e' + e.id, nombre: e.nombre, correo: e.correo, nivel: e.nivel, inst: e.institucion }));
