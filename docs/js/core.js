@@ -41,7 +41,7 @@ const SECRETO = /pass|token|secret|clave|i/;
 const limpiar = o => JSON.parse(JSON.stringify(o ?? null, (k, v) => SECRETO.test(k) ? undefined : v));
 
 /* ==========================================================================
-   3. GESTIÓN DE AUTENTICACIÓN (Requerido por ui.js con Auth.actual)
+   GESTIÓN DE AUTENTICACIÓN
    ========================================================================== */
 class Auth {
     static actual() {
@@ -55,8 +55,11 @@ class Auth {
     }
 }
 
+// Hacemos disponible Auth globalmente por seguridad
+window.Auth = Auth;
+
 /* ==========================================================================
-   1. REGISTRO DE INTENTOS DE ACCESO (tabla 'intentos_acceso')
+   REGISTRO DE INTENTOS DE ACCESO (tabla 'intentos_acceso')
    ========================================================================== */
 async function registrarIntentoAcceso(username, exitoso) {
     try {
@@ -73,8 +76,6 @@ async function registrarIntentoAcceso(username, exitoso) {
 
         if (error) {
             console.error('Error al registrar intento de acceso:', error.message);
-        } else {
-            console.log('Intento de acceso registrado:', data);
         }
     } catch (err) {
         console.error('Excepción en registrarIntentoAcceso:', err);
@@ -82,7 +83,7 @@ async function registrarIntentoAcceso(username, exitoso) {
 }
 
 /* ==========================================================================
-   2. REGISTRO SINCRONIZADO DE NOTIFICACIONES Y CANALES
+   REGISTRO SINCRONIZADO DE NOTIFICACIONES Y CANALES
    ========================================================================== */
 async function registrarNotificacionConEnvios(solicitudId, estudianteId, evento, mensajeTexto, simularFalloEmail = false) {
     try {
