@@ -168,18 +168,19 @@ const Auth = {
     const k = usuario.toLowerCase(), t = this.fallos[k], bloq = t && Date.now() < t.hasta;
     if (bloq && t.n >= 3) throw Error('Demasiados intentos fallidos. Espere ' + Math.ceil((t.hasta - Date.now()) / 1000) + ' s');
 
-    // Consultar la tabla 'usuarios' en Supabase filtrando por nombre de usuario
     const { data: usersList, error } = await supabaseClient
       .from('usuarios')
       .select('*')
       .ilike('usuario', k);
+
+    console.log("Usuarios encontrados en Supabase:", usersList);
+    console.log("Hash generado por el código:", sha256(SAL + k + '|' + pw));
 
     if (error || !usersList || usersList.length === 0) {
       this.registrarFallo(k);
       throw Error('Usuario o contraseña incorrectos');
     }
 
-    // Filtrar por rol (estudiante vs personal)
     const u = usersList.find(x => (tipo === 'estudiante') === (x.rol === 'estudiante'));
 
     if (!u || u.hash !== sha256(SAL + k + '|' + pw)) {
