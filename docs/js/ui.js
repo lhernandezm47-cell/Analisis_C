@@ -174,7 +174,7 @@ document.addEventListener('click', e => {
   const v = e.target.closest('[data-v]'); if (v) { e.preventDefault(); V = v.dataset.v; return render(); }
   const b = e.target.closest('[data-a]'); if (b) run(() => ACT[b.dataset.a](b.dataset.id));
 });
-document.addEventListener('change', e => { const id = e.target.dataset.doc; if (id && e.target.files[0]) { const f = e.target.files[0]; run(() => Becas.adjuntar(U, id, { name: f.name, size: f.size })); } });
+document.addEventListener('change', e => { const id = e.target.dataset.doc; if (id && e.target.files[0]) { const f = e.target.files[0]; run(() => Becas.adjuntar(U, id, { name: f.name, size: f.size, file: f })); } });
 
 const boot = async () => {
   U = Auth.actual(); const on = !!U;
