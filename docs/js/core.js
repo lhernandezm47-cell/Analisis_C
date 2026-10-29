@@ -1,7 +1,8 @@
 'use strict';
+
 /* ===== Configuración de Supabase (Cliente Frontend) ===== */
-const SUPABASE_URL = 'https://ykpxznpqqrgqgxdzrxhj.supabase.co'; // Tu Project URL de Supabase
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Reemplaza con tu llave Anon/Public de Supabase
+const SUPABASE_URL = 'https://ykpxznpqqrgqgxdzrxhj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrcHh6bnBxcXJncWd4ZHpyeGhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxNTA4MzgsImV4cCI6MjEwODcyNjgzOH0.J8FQaw9Zj-29JzHP0z7wx4NqWjqwYX1SrPXuNNHBjeE';
 
 // Inicializamos el cliente global de Supabase
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -17,19 +18,8 @@ const Q = n => 'Q' + Number(n).toLocaleString('es-GT', { minimumFractionDigits: 
 
 /* ===== Datos iniciales ===== */
 const mkSol = (id, est, conv, monto, desc) => ({ id, est, conv, monto, desc, estado: 'Enviada', docs: [], aprob: [], hist: [{ estado: 'Enviada', fecha: now(), por: 'Sistema' }] });
-// Las contraseñas NO se guardan: solo su hash SHA-256 con sal (ver Auth al final).
 const seed = () => ({
   cfg: { fallo: false },
-  users: [
-    { id: 'u1', usuario: 'LuisUMG', nombre: 'Luis (Administrador)', rol: 'admin', hash: '7b0352c0d2947a647e10018c3ab601a3816442b445c35673df310eed142c304e' },
-    { id: 'u2', usuario: 'ValleUMG', nombre: 'Valle (Resp. de evaluación)', rol: 'evaluador', hash: 'babe9a26b95363b1215a0824819cdf309d8a911ec8c6d723ef7320600edae79e' },
-    { id: 'u3', usuario: 'JustinUMG', nombre: 'Justin (Resp. de evaluación)', rol: 'evaluador', hash: '9edfdfebabe2862b8f90ee65acdda515de62f7702b3643ad5bab078da666ffd1' },
-    { id: 'u4', usuario: 'GabrielaUMG', nombre: 'Gabriela (Autoridad autorizadora)', rol: 'autoridad', hash: 'e5a9e3d2f8341095629381de023ea69194ff857b36fddfc00ca61d5fd67e0791' },
-    { id: 'u5', usuario: 'LothUMG', nombre: 'Loth (Auditor)', rol: 'auditor', hash: 'd457d417ac06289285c3058bdd9215dfc6f5ce0f1bb40ea29151e245d9025156' },
-    { id: 'u6', usuario: 'AndreUMG', nombre: 'Andre (Autoridad autorizadora)', rol: 'autoridad', hash: 'd65f0f59083bc525783ce64dbe579414240224d3830c9a124ffbdd31c7b15225' },
-    { id: 'u7', usuario: 'Estudiante1', nombre: 'Sofía Ramírez', rol: 'estudiante', est: 'e1', hash: 'b739175cdc9542323c08bbe741582643bab00d7688e455453526d0c499d203a7' },
-    { id: 'u8', usuario: 'Estudiante2', nombre: 'Diego Morales', rol: 'estudiante', est: 'e2', hash: '27d0e80c3e741f98cdc1e2ed524e4534d66160e1c15ad695be68ab146311ae91' },
-    { id: 'u9', usuario: 'Estudiante3', nombre: 'Camila Pérez', rol: 'estudiante', est: 'e3', hash: '95a1f16ab21c5541a6018506df38bc7c009b4588860693dd8d1b8af8b70c8b59' }],
   comites: [{ id: 'k1', nombre: 'Comité Académico', miembros: ['u2', 'u3'] }],
   convs: [{ id: 'c1', nombre: 'Beca Excelencia Universitaria 2026', nivel: 'Universitario', cupo: 50, cierre: '2026-12-15', comite: 'k1' }],
   ests: [
@@ -97,13 +87,13 @@ const ChannelFactory = {
     app: class { nombre = 'En la aplicación'; send() { } },
     email: class { nombre = 'Correo (simulado)'; send() { if (D().cfg.fallo) throw Error('Servicio de correo no disponible'); } }
   },
-  register(k, cls) { this.reg[k] = cls; }, // nuevos canales sin tocar la lógica
+  register(k, cls) { this.reg[k] = cls; },
   crear() { return Object.values(this.reg).map(C => new C()); }
 };
 Bus.on('estado', ({ s, de, a }) => {
   const ev = { id: uid('N'), fecha: now(), sol: s.id, est: s.est, evento: 'CAMBIO_ESTADO: ' + (de ?? 'nueva') + ' → ' + a, msg: 'Su solicitud ' + s.id + ' cambió al estado: ' + a, canales: [] };
   ChannelFactory.crear().forEach(c => { try { c.send(ev); ev.canales.push({ c: c.nombre, ok: true }); } catch (x) { ev.canales.push({ c: c.nombre, ok: false, err: x.message }); } });
-  D().notifs.push(ev); // el cambio de estado se conserva aunque falle un canal
+  D().notifs.push(ev);
 });
 
 /* ===== PATRÓN ESTRUCTURAL 2: Decorator (agrega auditoría a cada operación) ===== */
@@ -150,7 +140,7 @@ const Becas = {
   })
 };
 
-/* ===== Autenticación (solo demostración en el navegador) ===== */
+/* ===== Autenticación conectada a Supabase (Tabla usuarios) ===== */
 const SAL = 'becas-umg|';
 const sha256 = s => {
   const b = [...new TextEncoder().encode(s)], l = b.length * 8; b.push(128);
@@ -171,20 +161,49 @@ const sha256 = s => {
   }
   return h.map(x => (x >>> 0).toString(16).padStart(8, '0')).join('');
 };
+
 const Auth = {
   fallos: {},
-  login(usuario, pw, tipo) {
+  async login(usuario, pw, tipo) {
     const k = usuario.toLowerCase(), t = this.fallos[k], bloq = t && Date.now() < t.hasta;
     if (bloq && t.n >= 3) throw Error('Demasiados intentos fallidos. Espere ' + Math.ceil((t.hasta - Date.now()) / 1000) + ' s');
-    const u = D().users.find(x => x.usuario.toLowerCase() === k && (tipo === 'estudiante') === (x.rol === 'estudiante'));
-    if (!u || u.hash !== sha256(SAL + k + '|' + pw)) {
-      this.fallos[k] = { n: (bloq ? t.n : 0) + 1, hasta: Date.now() + 30000 };
-      AuditLog.add({ id: '-', nombre: usuario }, 'INTENTO_FALLIDO', '', { acceso: tipo }); S();
+
+    // Consultar la tabla 'usuarios' en Supabase filtrando por nombre de usuario
+    const { data: usersList, error } = await supabaseClient
+      .from('usuarios')
+      .select('*')
+      .ilike('usuario', k);
+
+    if (error || !usersList || usersList.length === 0) {
+      this.registrarFallo(k);
       throw Error('Usuario o contraseña incorrectos');
     }
-    delete this.fallos[k]; sessionStorage.setItem('becas_ses', u.id);
-    AuditLog.add(u, 'INICIO_SESION', '', { acceso: tipo }); S(); return u;
+
+    // Filtrar por rol (estudiante vs personal)
+    const u = usersList.find(x => (tipo === 'estudiante') === (x.rol === 'estudiante'));
+
+    if (!u || u.hash !== sha256(SAL + k + '|' + pw)) {
+      this.registrarFallo(k);
+      throw Error('Usuario o contraseña incorrectos');
+    }
+
+    delete this.fallos[k]; 
+    sessionStorage.setItem('becas_ses', JSON.stringify(u));
+    return u;
   },
-  actual() { return D().users.find(u => u.id === sessionStorage.getItem('becas_ses')); },
-  salir() { sessionStorage.removeItem('becas_ses'); }
+  
+  registrarFallo(k) {
+    const t = this.fallos[k];
+    const bloq = t && Date.now() < t.hasta;
+    this.fallos[k] = { n: (bloq ? t.n : 0) + 1, hasta: Date.now() + 30000 };
+  },
+
+  actual() { 
+    const ses = sessionStorage.getItem('becas_ses');
+    return ses ? JSON.parse(ses) : null; 
+  },
+  
+  salir() { 
+    sessionStorage.removeItem('becas_ses'); 
+  }
 };
