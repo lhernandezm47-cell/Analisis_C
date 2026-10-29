@@ -27,6 +27,7 @@ const seed = () => ({
     { id: 'e2', nombre: 'Diego Morales', correo: 'diego@correo.gt', nivel: 'Universitario', inst: 'Universidad Mariano Gálvez' },
     { id: 'e3', nombre: 'Camila Pérez', correo: 'camila@correo.gt', nivel: 'Medio', inst: 'Liceo Santa Lucía' }],
   sols: [mkSol('s1', 'e1', 'c1', 8000, 'Matrícula y materiales'), mkSol('s2', 'e1', 'c1', 15000, 'Estudios de posgrado'), mkSol('s3', 'e2', 'c1', 5000, 'Útiles y transporte')],
+  users: [],
   evals: [], notifs: [], audit: []
 });
 
@@ -81,7 +82,7 @@ class PolDoble {
 const PolicyFactory = { para: s => s.monto > LIMITE ? new PolDoble() : new PolSimple() };
 const sigPaso = (pol, s) => pol.pasos.find(p => !s.aprob.some(a => a.tipo === p));
 
-/* ===== PATRÓN ESTRUCTURAL 1: Adapter (canales de notificación con interfaz única send) + Factory de canales ===== */
+/* ===== PATRÓN ESTRUCTURAL 1: Adapter + Factory de canales ===== */
 const ChannelFactory = {
   reg: {
     app: class { nombre = 'En la aplicación'; send() { } },
@@ -96,20 +97,19 @@ Bus.on('estado', ({ s, de, a }) => {
   D().notifs.push(ev);
 });
 
-/* ===== PATRÓN ESTRUCTURAL 2: Decorator (agrega auditoría a cada operación) ===== */
+/* ===== PATRÓN ESTRUCTURAL 2: Decorator (agrega auditoría) ===== */
 const audited = (op, fn) => (u, ...a) => { const r = fn(u, ...a); AuditLog.add(u, op, r.sol, r.det); S(); return r; };
 const need = (u, ...roles) => { if (!roles.includes(u.rol)) throw Error('No tiene permisos para esta operación'); };
 const sol = id => D().sols.find(s => s.id === id) || (() => { throw Error('Solicitud no encontrada'); })();
 const duenio = (u, s) => { need(u, 'admin', 'estudiante'); if (u.rol === 'estudiante' && u.est !== s.est) throw Error('Solo puede operar sus propias solicitudes'); };
 const cambiar = (s, nuevo, u) => { const de = s.estado; s.estado = nuevo; s.hist.push({ estado: nuevo, fecha: now(), por: u.nombre }); Bus.emit('estado', { s, de, a: nuevo }); };
 
-/* ===== PATRÓN ESTRUCTURAL 3: Facade (API con persistencia real en Supabase) ===== */
+/* ===== PATRÓN ESTRUCTURAL 3: Facade (API con Supabase) ===== */
 const Becas = {
   async crearConv(u, c) {
     need(u, 'admin'); 
     if (!c.nombre || !(c.cupo > 0)) throw Error('Nombre y cupo válidos son obligatorios');
     
-    // Guardar directamente en Supabase
     const { error } = await supabaseClient
       .from('convocatorias')
       .insert([{ nombre: c.nombre, nivel: c.nivel, cupo: c.cupo, fecha_cierre: c.cierre, comite_id: c.comite }]);
@@ -118,10 +118,6 @@ const Becas = {
       console.error("Error Supabase convocatorias:", error);
       throw Error('Error al guardar la convocatoria en la base de datos');
     }
-    
-    // Respaldo local y actualización de estado
-    D().convs.push({ id: uid('C'), ...c }); 
-    S();
   },
 
   async crearEst(u, e) {
@@ -136,20 +132,27 @@ const Becas = {
       console.error("Error Supabase estudiantes:", error);
       throw Error('Error al registrar estudiante en la base de datos');
     }
-
-    D().ests.push({ id: uid('E'), ...e }); 
-    S();
   },
 
   crearComite(u, k) { need(u, 'admin'); if (!k.nombre || !k.miembros.length) throw Error('Indique nombre y al menos un miembro'); D().comites.push({ id: uid('K'), ...k }); S(); },
   
-  crearSol: audited('CREAR_SOLICITUD', (u, f) => {
+  async crearSol(u, f) {
     need(u, 'admin', 'estudiante'); if (u.rol === 'estudiante') f.est = u.est;
-    if (!D().ests.some(e => e.id === f.est) || !D().convs.some(c => c.id === f.conv)) throw Error('Estudiante o convocatoria inválidos');
     if (!(f.monto > 0)) throw Error('El monto debe ser mayor que cero');
-    const s = mkSol(uid('S'), f.est, f.conv, +f.monto, f.desc); D().sols.push(s); Bus.emit('estado', { s, de: null, a: 'Enviada' });
-    return { sol: s.id, det: { monto: s.monto } };
-  }),
+
+    // Parsear IDs eliminando las letras prefijo ('e1' -> 1)
+    const estId = parseInt(String(f.est).replace(/\D/g, '')) || 1;
+    const convId = parseInt(String(f.conv).replace(/\D/g, '')) || 1;
+
+    const { error } = await supabaseClient
+      .from('solicitudes')
+      .insert([{ estudiante_id: estId, convocatoria_id: convId, monto: +f.monto, descripcion: f.desc, estado: 'Enviada' }]);
+
+    if (error) {
+      console.error("Error Supabase solicitudes:", error);
+      throw Error('Error al enviar la solicitud a la base de datos');
+    }
+  },
 
   editarSol: audited('MODIFICAR_SOLICITUD', (u, id, campo, valor) => {
     const s = sol(id); duenio(u, s); if (s.estado !== 'Enviada') throw Error('Solo se puede modificar una solicitud en estado Enviada');
