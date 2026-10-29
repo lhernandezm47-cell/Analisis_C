@@ -70,7 +70,7 @@ async function registrarIntentoAcceso(username, exitoso) {
             .insert([{
                 usuario_escrito: username || '(vacío)',
                 fecha_hora: new Date().toISOString(),
-                resultado: exitoso ? 'exitoso' : 'fallido'
+                resultado: exitoso ? 'exito' : 'fallo'
             }]);
 
         if (error) {
