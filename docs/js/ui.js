@@ -1,3 +1,10 @@
+// --- BLINDAJE DE SEGURIDAD PARA AUTH ---
+window.Auth = window.Auth || {
+    actual: () => JSON.parse(localStorage.getItem('usuario_actual') || 'null'),
+    login: (user) => localStorage.setItem('usuario_actual', JSON.stringify(user)),
+    logout: () => localStorage.removeItem('usuario_actual')
+};
+
 'use strict';
 let U = Auth.actual(), V = 'panel', CODE = '';
 const NAV = [['panel', 'Panel', 'admin evaluador autoridad estudiante auditor'], ['convs', 'Convocatorias', 'admin estudiante evaluador autoridad'], ['ests', 'Estudiantes', 'admin'], ['comites', 'Comités evaluadores', 'admin'],
