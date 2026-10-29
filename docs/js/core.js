@@ -16,7 +16,7 @@ const now = () => new Date().toISOString();
 const fmt = d => new Date(d).toLocaleString('es-GT');
 const Q = n => 'Q' + Number(n).toLocaleString('es-GT', { minimumFractionDigits: 2 });
 
-/* ===== Datos iniciales ===== */
+/* ===== Datos iniciales locales (respaldo) ===== */
 const mkSol = (id, est, conv, monto, desc) => ({ id, est, conv, monto, desc, estado: 'Enviada', docs: [], aprob: [], hist: [{ estado: 'Enviada', fecha: now(), por: 'Sistema' }] });
 const seed = () => ({
   cfg: { fallo: false },
@@ -103,11 +103,46 @@ const sol = id => D().sols.find(s => s.id === id) || (() => { throw Error('Solic
 const duenio = (u, s) => { need(u, 'admin', 'estudiante'); if (u.rol === 'estudiante' && u.est !== s.est) throw Error('Solo puede operar sus propias solicitudes'); };
 const cambiar = (s, nuevo, u) => { const de = s.estado; s.estado = nuevo; s.hist.push({ estado: nuevo, fecha: now(), por: u.nombre }); Bus.emit('estado', { s, de, a: nuevo }); };
 
-/* ===== PATRÓN ESTRUCTURAL 3: Facade (API única de casos de uso para la interfaz) ===== */
+/* ===== PATRÓN ESTRUCTURAL 3: Facade (API con persistencia real en Supabase) ===== */
 const Becas = {
-  crearConv(u, c) { need(u, 'admin'); if (!c.nombre || !(c.cupo > 0)) throw Error('Nombre y cupo válidos son obligatorios'); D().convs.push({ id: uid('C'), ...c }); S(); },
-  crearEst(u, e) { need(u, 'admin'); if (!e.nombre || !e.correo) throw Error('Nombre y correo son obligatorios'); D().ests.push({ id: uid('E'), ...e }); S(); },
+  async crearConv(u, c) {
+    need(u, 'admin'); 
+    if (!c.nombre || !(c.cupo > 0)) throw Error('Nombre y cupo válidos son obligatorios');
+    
+    // Guardar directamente en Supabase
+    const { error } = await supabaseClient
+      .from('convocatorias')
+      .insert([{ nombre: c.nombre, nivel: c.nivel, cupo: c.cupo, fecha_cierre: c.cierre, comite_id: c.comite }]);
+
+    if (error) {
+      console.error("Error Supabase convocatorias:", error);
+      throw Error('Error al guardar la convocatoria en la base de datos');
+    }
+    
+    // Respaldo local y actualización de estado
+    D().convs.push({ id: uid('C'), ...c }); 
+    S();
+  },
+
+  async crearEst(u, e) {
+    need(u, 'admin'); 
+    if (!e.nombre || !e.correo) throw Error('Nombre y correo son obligatorios');
+
+    const { error } = await supabaseClient
+      .from('estudiantes')
+      .insert([{ nombre: e.nombre, correo: e.correo, nivel: e.nivel, institucion: e.inst }]);
+
+    if (error) {
+      console.error("Error Supabase estudiantes:", error);
+      throw Error('Error al registrar estudiante en la base de datos');
+    }
+
+    D().ests.push({ id: uid('E'), ...e }); 
+    S();
+  },
+
   crearComite(u, k) { need(u, 'admin'); if (!k.nombre || !k.miembros.length) throw Error('Indique nombre y al menos un miembro'); D().comites.push({ id: uid('K'), ...k }); S(); },
+  
   crearSol: audited('CREAR_SOLICITUD', (u, f) => {
     need(u, 'admin', 'estudiante'); if (u.rol === 'estudiante') f.est = u.est;
     if (!D().ests.some(e => e.id === f.est) || !D().convs.some(c => c.id === f.conv)) throw Error('Estudiante o convocatoria inválidos');
@@ -115,13 +150,16 @@ const Becas = {
     const s = mkSol(uid('S'), f.est, f.conv, +f.monto, f.desc); D().sols.push(s); Bus.emit('estado', { s, de: null, a: 'Enviada' });
     return { sol: s.id, det: { monto: s.monto } };
   }),
+
   editarSol: audited('MODIFICAR_SOLICITUD', (u, id, campo, valor) => {
     const s = sol(id); duenio(u, s); if (s.estado !== 'Enviada') throw Error('Solo se puede modificar una solicitud en estado Enviada');
     if (!['monto', 'desc'].includes(campo)) throw Error('Campo no modificable');
     if (campo === 'monto') { valor = +valor; if (!(valor > 0)) throw Error('Monto inválido'); }
     const antes = s[campo]; s[campo] = valor; return { sol: id, det: { campo, antes, despues: valor } };
   }),
+
   adjuntar: audited('CARGAR_DOCUMENTO', (u, id, f) => { const s = sol(id); duenio(u, s); if (['Autorizada', 'Rechazada'].includes(s.estado)) throw Error('La solicitud ya está cerrada'); s.docs.push({ ...f, fecha: now() }); return { sol: id, det: { documento: f.nombre } }; }),
+  
   evaluar: audited('EVALUAR', (u, id, puntaje, coment) => {
     need(u, 'evaluador'); const s = sol(id), k = D().comites.find(k => k.id === D().convs.find(c => c.id === s.conv)?.comite);
     if (!k?.miembros.includes(u.id)) throw Error('Solo los miembros del comité evaluador pueden evaluar');
@@ -131,6 +169,7 @@ const Becas = {
     if (s.estado === 'Enviada') cambiar(s, 'En evaluación', u);
     return { sol: id, det: { puntaje } };
   }),
+
   decidir: audited('DECIDIR', (u, id, ok, coment) => {
     const s = sol(id); if (s.estado !== 'En evaluación') throw Error('La solicitud debe estar En evaluación (con evaluación registrada)');
     const pol = PolicyFactory.para(s), paso = sigPaso(pol, s); pol.check(u, s, paso);
@@ -172,9 +211,6 @@ const Auth = {
       .from('usuarios')
       .select('*')
       .ilike('usuario', k);
-
-    console.log("Usuarios encontrados en Supabase:", usersList);
-    console.log("Hash generado por el código:", sha256(SAL + k + '|' + pw));
 
     if (error || !usersList || usersList.length === 0) {
       this.registrarFallo(k);
