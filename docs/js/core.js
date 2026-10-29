@@ -41,6 +41,22 @@ const SECRETO = /pass|token|secret|clave|i/;
 const limpiar = o => JSON.parse(JSON.stringify(o ?? null, (k, v) => SECRETO.test(k) ? undefined : v));
 
 /* ==========================================================================
+   3. GESTIÓN DE AUTENTICACIÓN (Requerido por ui.js)
+   ========================================================================== */
+class Auth {
+    static current() {
+        // Recupera el usuario activo de la sesión o localStorage si tu app lo usa
+        return JSON.parse(localStorage.getItem('usuario_actual') || 'null');
+    }
+    static login(user) {
+        localStorage.setItem('usuario_actual', JSON.stringify(user));
+    }
+    static logout() {
+        localStorage.removeItem('usuario_actual');
+    }
+}
+
+/* ==========================================================================
    1. REGISTRO DE INTENTOS DE ACCESO (tabla 'intentos_acceso')
    ========================================================================== */
 async function registrarIntentoAcceso(username, exitoso) {
