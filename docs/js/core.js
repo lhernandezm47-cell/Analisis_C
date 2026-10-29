@@ -53,6 +53,12 @@ const hash = s => { let h = 5381; for (const c of s) h = ((h << 5) + h + c.charC
 const SECRETO = /pass|token|secret|clave/i;
 const limpiar = o => JSON.parse(JSON.stringify(o ?? null, (k, v) => SECRETO.test(k) ? undefined : v));
 
+/* ===== SHA-256 en el navegador (requiere https o localhost) ===== */
+async function sha256Hex(texto) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 /* ==========================================================================
    REGISTRO DE INTENTOS DE ACCESO (tabla 'intentos_acceso')
    ========================================================================== */
@@ -78,8 +84,8 @@ class Auth {
         return JSON.parse(localStorage.getItem('usuario_actual') || 'null');
     }
 
-    // Valida contra la tabla 'usuarios' de Supabase.
-    // AJUSTA 'password' y 'estudiante_id' si en tu tabla se llaman distinto.
+    // Valida contra la tabla 'usuarios' (columnas: usuario, contrasena_hash, activo, estudiante_id).
+    // La contraseña se convierte a SHA-256 (hex) en el navegador y se compara con contrasena_hash.
     static async login(username, password, tipo) {
         const { data, error } = await supabaseClient
             .from('usuarios')
@@ -91,7 +97,11 @@ class Auth {
             throw new Error('No se pudo conectar con el servidor: ' + error.message);
         }
 
-        if (!data || data.password !== password) {
+        const hashIngresado = await sha256Hex(password);
+        const ok = data && data.activo !== false &&
+            String(data.contrasena_hash || '').toLowerCase() === hashIngresado;
+
+        if (!ok) {
             registrarIntentoAcceso(username, false);
             throw new Error('Usuario o contraseña incorrectos');
         }
