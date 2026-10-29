@@ -1,4 +1,11 @@
 'use strict';
+/* ===== Configuración de Supabase (Cliente Frontend) ===== */
+const SUPABASE_URL = 'https://ykpxznpqqrgqgxdzrxhj.supabase.co'; // Tu Project URL de Supabase
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Reemplaza con tu llave Anon/Public de Supabase
+
+// Inicializamos el cliente global de Supabase
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 /* ===== Utilidades ===== */
 const LIMITE = 10000; // Q: umbral de doble aprobación
 const $ = s => document.querySelector(s);
