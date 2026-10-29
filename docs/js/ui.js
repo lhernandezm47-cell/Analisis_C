@@ -15,12 +15,13 @@ const NIV = ['Medio', 'Universitario', 'Posgrado'].map(n => `<option>${n}</optio
 
 const portal = () => {
   const e = D().ests.find(x => x.id === U.est), hoy = now().slice(0, 10), ns = D().notifs.filter(n => n.est === U.est).slice(-3).reverse();
-  return `<h2>Bienvenido(a), ${esc(e.nombre)}</h2><p class="mut">${esc(e.nivel)}, ${esc(e.inst)}. Correo de contacto: ${esc(e.correo)}</p>
+  return `<h2>Bienvenido(a), ${esc(e?.nombre || U.nombre)}</h2><p class="mut">${esc(e?.nivel || '')}, ${esc(e?.inst || '')}. Correo de contacto: ${esc(e?.correo || '')}</p>
   <div class="cards">${Object.keys(CL).map(x => `<div class="card"><b>${mias().filter(s => s.estado === x).length}</b>${x}</div>`).join('')}</div>
   <h3>Convocatorias abiertas</h3>${T(['Convocatoria', 'Nivel', 'Cierre'], D().convs.filter(c => c.cierre >= hoy).map(c => [esc(c.nombre), c.nivel, c.cierre]))}
   <p>Para pedir una beca vaya a <b>Solicitudes</b>; para ver cómo va su trámite use <b>Consultar beca</b>.</p>
   <h3>Mis últimas notificaciones</h3><ul class="tl">${ns.map(n => `<li>${fmt(n.fecha)}: ${esc(n.msg)}</li>`).join('') || '<li class="mut">Aún no tiene notificaciones</li>'}</ul>`;
 };
+
 const VIEWS = {
   panel: () => { if (U.rol === 'estudiante') return portal(); const d = D(); return `<h2>Panel</h2><div class="cards">${Object.keys(CL).map(e => `<div class="card"><b>${mias().filter(s => s.estado === e).length}</b>${e}</div>`).join('')}</div>
     <p>Sesión: <b>${esc(U.nombre)}</b>. Cambie de usuario (arriba) para recorrer los flujos: estudiante crea la solicitud, el responsable de evaluación evalúa y aprueba, la autoridad autoriza (solicitudes de más de ${Q(LIMITE)} requieren ambas) y el auditor revisa la bitácora.</p>`; },
@@ -65,21 +66,67 @@ const VIEWS = {
       ['Strategy', 'Comportamiento', 'PolSimple / PolDoble', 'Reglas de aprobación por monto', 'Condicionales dispersos', 'Cada regla encapsulada', 'Cambios normativos aislados']])}`
 };
 
+// Función para sincronizar y descargar los datos desde Supabase al iniciar sesión
+async function cargarDatosSupabase() {
+  try {
+    const [convRes, estRes] = await Promise.all([
+      supabaseClient.from('convocatorias').select('*'),
+      supabaseClient.from('estudiantes').select('*')
+    ]);
+
+    if (!convRes.error && convRes.data && convRes.data.length > 0) {
+      D().convs = convRes.data.map(c => ({
+        id: 'c' + c.id,
+        nombre: c.nombre,
+        nivel: c.nivel,
+        cupo: c.cupo,
+        cierre: c.fecha_cierre ? c.fecha_cierre.slice(0, 10) : '',
+        comite: c.comite_id
+      }));
+    }
+
+    if (!estRes.error && estRes.data && estRes.data.length > 0) {
+      D().ests = estRes.data.map(e => ({
+        id: 'e' + e.id,
+        nombre: e.nombre,
+        correo: e.correo,
+        nivel: e.nivel,
+        inst: e.institucion
+      }));
+    }
+  } catch (err) {
+    console.error("Error al sincronizar con Supabase:", err);
+  }
+}
+
 function render() {
   if (!NAV.some(n => n[0] === V && n[2].includes(U.rol))) V = 'panel';
   $('#nav').innerHTML = NAV.filter(n => n[2].includes(U.rol)).map(n => `<a href="#" data-v="${n[0]}" class="${n[0] === V ? 'on' : ''}">${U.rol === 'estudiante' && n[0] === 'panel' ? 'Mi portal' : n[1]}</a>`).join('');
   $('#main').innerHTML = VIEWS[V]();
 }
-const run = fn => { try { fn(); toast('Operación realizada'); const n = D().notifs.at(-1); if (n?.canales.some(c => !c.ok)) toast('Estado guardado; falló un canal de notificación', 1); } catch (x) { toast(x.message, 1); } render(); };
+
+const run = async fn => { 
+  try { 
+    await fn(); 
+    await cargarDatosSupabase(); // Recargar datos frescos de Supabase tras cualquier operación
+    toast('Operación realizada'); 
+    const n = D().notifs.at(-1); 
+    if (n?.canales.some(c => !c.ok)) toast('Estado guardado; falló un canal de notificación', 1); 
+  } catch (x) { 
+    toast(x.message, 1); 
+  } 
+  render(); 
+};
 
 const FORMS = {
-  conv: f => Becas.crearConv(U, { nombre: f.get('nombre'), nivel: f.get('nivel'), cupo: +f.get('cupo'), cierre: f.get('cierre'), comite: f.get('comite') }),
-  est: f => Becas.crearEst(U, { nombre: f.get('nombre'), correo: f.get('correo'), nivel: f.get('nivel'), inst: f.get('inst') }),
+  conv: async f => await Becas.crearConv(U, { nombre: f.get('nombre'), nivel: f.get('nivel'), cupo: +f.get('cupo'), cierre: f.get('cierre'), comite: f.get('comite') }),
+  est: async f => await Becas.crearEst(U, { nombre: f.get('nombre'), correo: f.get('correo'), nivel: f.get('nivel'), inst: f.get('inst') }),
   comite: f => Becas.crearComite(U, { nombre: f.get('nombre'), miembros: f.getAll('m') }),
   sol: f => Becas.crearSol(U, { est: f.get('est'), conv: f.get('conv'), monto: f.get('monto'), desc: f.get('desc') }),
   estado: f => { CODE = f.get('code'); },
   cfg: f => { D().cfg.fallo = f.get('fallo') === 'on'; S(); }
 };
+
 const ACT = {
   em: id => { const v = prompt('Nuevo monto (Q):'); if (v !== null) Becas.editarSol(U, id, 'monto', v); },
   ed: id => { const v = prompt('Nueva descripción:'); if (v !== null) Becas.editarSol(U, id, 'desc', v); },
@@ -88,6 +135,7 @@ const ACT = {
   rj: id => Becas.decidir(U, id, false, prompt('Motivo del rechazo:') || ''),
   csv: () => { const r = [['Solicitud', 'Estudiante', 'Convocatoria', 'Monto', 'Estado']].concat(D().sols.map(s => [s.id, nm(D().ests, s.est), nm(D().convs, s.conv), s.monto, s.estado])); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + r.map(x => x.map(c => '"' + String(c).replace(/&#\d+;/g, '') + '"').join(',')).join('\n')], { type: 'text/csv' })); a.download = 'reporte_becas.csv'; a.click(); }
 };
+
 document.addEventListener('submit', e => { const f = e.target.dataset.f; if (!f) return; e.preventDefault(); run(() => FORMS[f](new FormData(e.target))); });
 document.addEventListener('click', e => {
   const v = e.target.closest('[data-v]'); if (v) { e.preventDefault(); V = v.dataset.v; return render(); }
@@ -95,14 +143,17 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('change', e => { const id = e.target.dataset.doc; if (id && e.target.files[0]) { const f = e.target.files[0]; run(() => Becas.adjuntar(U, id, { nombre: f.name, size: f.size })); } });
 $('#reset').onclick = () => { if (confirm('¿Borrar todos los datos guardados y volver a los datos de ejemplo?')) { localStorage.removeItem('becas_v2'); Auth.salir(); location.reload(); } };
-const boot = () => {
+
+const boot = async () => {
   U = Auth.actual(); const on = !!U;
   $('#login').hidden = on; $('#app').hidden = !on; document.body.classList.toggle('est', on && U.rol === 'estudiante');
   if (!on) return;
+  await cargarDatosSupabase(); // Carga los datos de Supabase antes de pintar la interfaz
   $('#me').textContent = U.nombre; $('#reset').hidden = U.rol !== 'admin';
   $('#ttl').textContent = U.rol === 'estudiante' ? 'Portal del Estudiante: Becas' : 'Plataforma Nacional para la Gestión Integral de Becas';
   V = 'panel'; render();
 };
+
 let TIPO = 'personal';
 document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { TIPO = b.dataset.t; document.querySelectorAll('[data-t]').forEach(x => x.classList.toggle('on', x === b)); $('#le').textContent = ''; $('#lf').reset(); });
 
@@ -114,7 +165,7 @@ $('#lf').onsubmit = async e => {
     await Auth.login(f.get('u').trim(), f.get('p'), TIPO); 
     $('#lf').reset(); 
     $('#le').textContent = ''; 
-    boot(); 
+    await boot(); 
   } catch (x) { 
     $('#le').textContent = x.message; 
     $('#lf').p.value = ''; 
