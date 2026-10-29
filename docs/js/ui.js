@@ -38,8 +38,8 @@ const VIEWS = {
     return `<h2>Solicitudes</h2>${form}${T(['Código', 'Estudiante', 'Convocatoria', 'Monto', 'Descripción', 'Estado', 'Aprobaciones', 'Documentos', 'Acciones'], rows)}`;
   },
   evals: () => `<h2>Evaluaciones</h2>${T(['Solicitud', 'Evaluador', 'Puntaje', 'Comentario', 'Fecha'], (D().evals || []).map(v => [v.sol, esc(v.nombre), v.puntaje, esc(v.coment), fmt(v.fecha)]))}`,
-  estado: () => { const s = (D().sols || []).find(x => x.id === CODE.trim().toUpperCase() && (U.rol !== 'estudiante' || x.est === U.est)); const ns = (D().notifs || []).filter(n => n.sol === s?.id);
-    return `<h2>Consultar estado</h2><form class="f" data-f="estado">${inp('Código', 'code', 'text', 'required')}<button>Consultar</button></form>${CODE ? (s ? `<p><b>${s.id}</b> · ${badge(s.estado)}</p><h3>Historial</h3><ul class="tl">${(s.hist || []).map(h => `<li>${badge(h.estado)} ${fmt(h.fecha)}</li>`).join('')}</ul>` : '<p class="mut">No encontrada</p>') : ''}`; },
+  estado: () => { const s = (D().sols || []).find(x => x.id === CODE.trim().toUpperCase() && (U.rol !== 'estudiante' || x.est === U.est));
+    return `<h2>Consultar estado</h2><form class="f" data-f="estado">${inp('Código', 'code', 'text', 'required')}<button>Consultar</button></form>${CODE ? (s ? `<p><b>${s.id}</b> · ${badge(s.estado)}</p><h3>Historial</h3><ul class="tl">${(s.hist || []).map(h => `<li>${badge(h.estado)} ${fmt(h.fecha)} (${esc(h.por)})</li>`).join('')}</ul>` : '<p class="mut">No encontrada</p>') : ''}`; },
   rep: () => { const t = D().sols || []; return `<h2>Reportes</h2>${T(['Convocatoria', 'Solicitudes'], (D().convs || []).map(c => [esc(c.nombre), t.filter(s => s.conv === c.id).length]))}`; },
   notifs: () => `<h2>Notificaciones</h2>${T(['Fecha', 'Evento', 'Mensaje'], (D().notifs || []).filter(n => U.rol !== 'estudiante' || n.est === U.est).map(n => [fmt(n.fecha), esc(n.evento), esc(n.msg)]).reverse())}`,
   audit: () => `<h2>Auditoría</h2><p>Integridad: <b>${AuditLog.verificar() ? 'íntegra' : 'ALTERADA'}</b></p>${T(['Fecha', 'Usuario', 'Operación', 'Detalle'], (D().audit || []).map(a => [fmt(a.fecha), esc(a.usuario), a.op, esc(JSON.stringify(a.det))]).reverse())}`,
