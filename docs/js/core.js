@@ -4,11 +4,10 @@
 const SUPABASE_URL = 'https://ykpxznpqqrgqgxdzrxhj.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrcHh6bnBxcXJncWd4ZHpyeGhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxNTA4MzgsImV4cCI6MjEwODcyNjgzOH0.J8FQaw9Zj-29JzHP0z7wx4NqWjqwYX1SrPXuNNHBjeE';
 
-// Inicializamos el cliente global de Supabase
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ===== Utilidades ===== */
-const LIMITE = 10000; // Q: umbral de doble aprobación
+const LIMITE = 10000;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
 const uid = p => p + Math.random().toString(36).slice(2, 7).toUpperCase();
@@ -16,22 +15,11 @@ const now = () => new Date().toISOString();
 const fmt = d => new Date(d).toLocaleString('es-GT');
 const Q = n => 'Q' + Number(n).toLocaleString('es-GT', { minimumFractionDigits: 2 });
 
-/* ===== Datos iniciales locales (respaldo) ===== */
-const mkSol = (id, est, conv, monto, desc) => ({ id, est, conv, monto, desc, estado: 'Enviada', docs: [], aprob: [], hist: [{ estado: 'Enviada', fecha: now(), por: 'Sistema' }] });
 const seed = () => ({
   cfg: { fallo: false },
-  comites: [{ id: 'k1', nombre: 'Comité Académico', miembros: ['u2', 'u3'] }],
-  convs: [{ id: 'c1', nombre: 'Beca Excelencia Universitaria 2026', nivel: 'Universitario', cupo: 50, cierre: '2026-12-15', comite: 'k1' }],
-  ests: [
-    { id: 'e1', nombre: 'Sofía Ramírez', correo: 'sofia@correo.gt', nivel: 'Universitario', inst: 'Universidad Mariano Gálvez' },
-    { id: 'e2', nombre: 'Diego Morales', correo: 'diego@correo.gt', nivel: 'Universitario', inst: 'Universidad Mariano Gálvez' },
-    { id: 'e3', nombre: 'Camila Pérez', correo: 'camila@correo.gt', nivel: 'Medio', inst: 'Liceo Santa Lucía' }],
-  sols: [mkSol('s1', 'e1', 'c1', 8000, 'Matrícula y materiales'), mkSol('s2', 'e1', 'c1', 15000, 'Estudios de posgrado'), mkSol('s3', 'e2', 'c1', 5000, 'Útiles y transporte')],
-  users: [],
-  evals: [], notifs: [], audit: []
+  comites: [], convs: [], ests: [], sols: [], users: [], evals: [], notifs: [], audit: []
 });
 
-/* ===== PATRÓN CREACIONAL 1: Singleton (Store: única fuente de verdad) ===== */
 class Store {
   static #i;
   static get() { return Store.#i ??= new Store(); }
@@ -40,23 +28,34 @@ class Store {
 }
 const D = () => Store.get().d, S = () => Store.get().save();
 
-/* ===== PATRÓN DE COMPORTAMIENTO 1: Observer (bus de eventos) ===== */
 class Bus {
   static h = {};
   static on(e, f) { (Bus.h[e] ??= []).push(f); }
   static emit(e, p) { (Bus.h[e] || []).forEach(f => { try { f(p); } catch (x) { console.error('Observer', e, x); } }); }
 }
 
-/* ===== Auditoría: solo-agregar, encadenada con hash, sin secretos ===== */
+/* ===== Auditoría en Supabase (tabla 'auditoria') ===== */
 const hash = s => { let h = 5381; for (const c of s) h = ((h << 5) + h + c.charCodeAt(0)) >>> 0; return h.toString(16); };
 const SECRETO = /pass|token|secret|clave/i;
 const limpiar = o => JSON.parse(JSON.stringify(o ?? null, (k, v) => SECRETO.test(k) ? undefined : v));
+
 const AuditLog = {
-  add(u, op, sol, det) {
+  async add(u, op, sol, det) {
     const a = D().audit, p = a.at(-1);
     const r = { id: uid('A'), fecha: now(), usuarioId: u.id, usuario: u.nombre, op, sol: sol || '', det: limpiar(det), prev: p ? p.h : '0' };
     r.h = hash(r.prev + JSON.stringify([r.id, r.fecha, r.usuarioId, r.op, r.sol, r.det]));
     a.push(r);
+
+    const userId = parseInt(String(u.id).replace(/\D/g, '')) || 1;
+    const solIdClean = sol ? parseInt(String(sol).replace(/\D/g, '')) || null : null;
+
+    await supabaseClient.from('auditoria').insert([{
+      usuario_id: userId,
+      nombre_usuario: u.nombre,
+      operacion: op,
+      solicitud_id: solIdClean,
+      dato_modificado: JSON.stringify(det)
+    }]);
   },
   verificar() {
     let prev = '0';
@@ -64,7 +63,6 @@ const AuditLog = {
   }
 };
 
-/* ===== PATRÓN DE COMPORTAMIENTO 2: Strategy (política de aprobación) ===== */
 class PolSimple {
   pasos = ['unica'];
   check(u) { if (!['evaluador', 'autoridad'].includes(u.rol)) throw Error('Su rol no puede aprobar solicitudes'); }
@@ -78,11 +76,10 @@ class PolDoble {
     if (s.aprob.some(a => a.userId === u.id)) throw Error('La misma persona no puede completar ambas aprobaciones');
   }
 }
-/* ===== PATRÓN CREACIONAL 2: Factory (elige la política según el monto) ===== */
 const PolicyFactory = { para: s => s.monto > LIMITE ? new PolDoble() : new PolSimple() };
 const sigPaso = (pol, s) => pol.pasos.find(p => !s.aprob.some(a => a.tipo === p));
 
-/* ===== PATRÓN ESTRUCTURAL 1: Adapter + Factory de canales ===== */
+/* ===== Canales de Notificación (Supabase: 'notificaciones' y 'notificacion_envios') ===== */
 const ChannelFactory = {
   reg: {
     app: class { nombre = 'En la aplicación'; send() { } },
@@ -91,106 +88,138 @@ const ChannelFactory = {
   register(k, cls) { this.reg[k] = cls; },
   crear() { return Object.values(this.reg).map(C => new C()); }
 };
-Bus.on('estado', ({ s, de, a }) => {
+
+Bus.on('estado', async ({ s, de, a }) => {
   const ev = { id: uid('N'), fecha: now(), sol: s.id, est: s.est, evento: 'CAMBIO_ESTADO: ' + (de ?? 'nueva') + ' → ' + a, msg: 'Su solicitud ' + s.id + ' cambió al estado: ' + a, canales: [] };
-  ChannelFactory.crear().forEach(c => { try { c.send(ev); ev.canales.push({ c: c.nombre, ok: true }); } catch (x) { ev.canales.push({ c: c.nombre, ok: false, err: x.message }); } });
+  
+  ChannelFactory.crear().forEach(c => {
+    try { c.send(ev); ev.canales.push({ c: c.nombre, ok: true }); }
+    catch (x) { ev.canales.push({ c: c.nombre, ok: false, err: x.message }); }
+  });
+
   D().notifs.push(ev);
+
+  const solId = parseInt(String(s.id).replace(/\D/g, '')) || 1;
+  const estId = parseInt(String(s.est).replace(/\D/g, '')) || 1;
+
+  // Insertar en tabla 'notificaciones'
+  const { data: notifData } = await supabaseClient.from('notificaciones').insert([{
+    solicitud_id: solId,
+    estudiante_id: estId,
+    evento: 'CAMBIO_ESTADO',
+    mensaje: ev.msg
+  }]).select().single();
+
+  if (notifData) {
+    const notifId = notifData.id;
+    const envios = ev.canales.map(ch => ({
+      notificacion_id: notifId,
+      canal: ch.c,
+      resultado: ch.ok ? 'enviada' : 'falló',
+      error_detalles: ch.err || null
+    }));
+    await supabaseClient.from('notificacion_envios').insert(envios);
+  }
 });
 
-/* ===== PATRÓN ESTRUCTURAL 2: Decorator (agrega auditoría) ===== */
-const audited = (op, fn) => (u, ...a) => { const r = fn(u, ...a); AuditLog.add(u, op, r.sol, r.det); S(); return r; };
+const audited = (op, fn) => async (u, ...a) => { const r = fn(u, ...a); await AuditLog.add(u, op, r.sol, r.det); S(); return r; };
 const need = (u, ...roles) => { if (!roles.includes(u.rol)) throw Error('No tiene permisos para esta operación'); };
 const sol = id => D().sols.find(s => s.id === id) || (() => { throw Error('Solicitud no encontrada'); })();
 const duenio = (u, s) => { need(u, 'admin', 'estudiante'); if (u.rol === 'estudiante' && u.est !== s.est) throw Error('Solo puede operar sus propias solicitudes'); };
-const cambiar = (s, nuevo, u) => { const de = s.estado; s.estado = nuevo; s.hist.push({ estado: nuevo, fecha: now(), por: u.nombre }); Bus.emit('estado', { s, de, a: nuevo }); };
 
-/* ===== PATRÓN ESTRUCTURAL 3: Facade (API con Supabase) ===== */
+const cambiar = async (s, nuevo, u) => { 
+  const de = s.estado; 
+  s.estado = nuevo; 
+  s.hist.push({ estado: nuevo, fecha: now(), por: u.nombre }); 
+
+  const solId = parseInt(String(s.id).replace(/\D/g, '')) || 1;
+  await supabaseClient.from('solicitudes').update({ estado: nuevo }).eq('id', solId);
+  await supabaseClient.from('historial_estados').insert([{
+    solicitud_id: solId,
+    estado: nuevo,
+    usuario_o_sistema: u.nombre
+  }]);
+
+  Bus.emit('estado', { s, de, a: nuevo }); 
+};
+
+/* ===== Facade de Operaciones con Supabase ===== */
 const Becas = {
   async crearConv(u, c) {
     need(u, 'admin'); 
     if (!c.nombre || !(c.cupo > 0)) throw Error('Nombre y cupo válidos son obligatorios');
-    
-    // Convertir el ID del comité a número entero de forma segura
     const comiteId = parseInt(String(c.comite).replace(/\D/g, '')) || 1;
-
-    const { error } = await supabaseClient
-      .from('convocatorias')
-      .insert([{ 
-        nombre: c.nombre, 
-        nivel: c.nivel, 
-        cupo: +c.cupo, 
-        fecha_cierre: c.cierre, 
-        comite_id: comiteId 
-      }]);
-
-    if (error) {
-      console.error("Error Supabase convocatorias:", error);
-      throw Error('Error al guardar la convocatoria en la base de datos');
-    }
+    const { error } = await supabaseClient.from('convocatorias').insert([{ nombre: c.nombre, nivel: c.nivel, cupo: +c.cupo, fecha_cierre: c.cierre, comite_id: comiteId }]);
+    if (error) throw Error('Error al guardar la convocatoria');
   },
 
   async crearEst(u, e) {
     need(u, 'admin'); 
     if (!e.nombre || !e.correo) throw Error('Nombre y correo son obligatorios');
-
-    const { error } = await supabaseClient
-      .from('estudiantes')
-      .insert([{ nombre: e.nombre, correo: e.correo, nivel: e.nivel, institucion: e.inst }]);
-
-    if (error) {
-      console.error("Error Supabase estudiantes:", error);
-      throw Error('Error al registrar estudiante en la base de datos');
-    }
+    const { error } = await supabaseClient.from('estudiantes').insert([{ nombre: e.nombre, correo: e.correo, nivel: e.nivel, institucion: e.inst }]);
+    if (error) throw Error('Error al registrar estudiante');
   },
 
-  crearComite(u, k) { need(u, 'admin'); if (!k.nombre || !k.miembros.length) throw Error('Indique nombre y al menos un miembro'); D().comites.push({ id: uid('K'), ...k }); S(); },
+  async crearComite(u, k) { 
+    need(u, 'admin'); 
+    if (!k.nombre || !k.miembros || k.miembros.length === 0) throw Error('Indique nombre y miembros');
+    const { data, error } = await supabaseClient.from('comites').insert([{ nombre: k.nombre }]).select().single();
+    if (error || !data) throw Error('Error al crear comité');
+    const comiteId = data.id;
+    const rels = k.miembros.map(m => ({ comite_id: comiteId, usuario_id: parseInt(String(m).replace(/\D/g, '')) || 1 }));
+    await supabaseClient.from('comite_miembros').insert(rels);
+  },
   
   async crearSol(u, f) {
     need(u, 'admin', 'estudiante'); if (u.rol === 'estudiante') f.est = u.est;
     if (!(f.monto > 0)) throw Error('El monto debe ser mayor que cero');
-
     const estId = parseInt(String(f.est).replace(/\D/g, '')) || 1;
     const convId = parseInt(String(f.conv).replace(/\D/g, '')) || 1;
-
-    const { error } = await supabaseClient
-      .from('solicitudes')
-      .insert([{ estudiante_id: estId, convocatoria_id: convId, monto: +f.monto, descripcion: f.desc, estado: 'Enviada' }]);
-
-    if (error) {
-      console.error("Error Supabase solicitudes:", error);
-      throw Error('Error al enviar la solicitud a la base de datos');
-    }
+    const { error } = await supabaseClient.from('solicitudes').insert([{ estudiante_id: estId, convocatoria_id: convId, monto: +f.monto, descripcion: f.desc, estado: 'Enviada' }]);
+    if (error) throw Error('Error al enviar la solicitud');
   },
 
   editarSol: audited('MODIFICAR_SOLICITUD', (u, id, campo, valor) => {
-    const s = sol(id); duenio(u, s); if (s.estado !== 'Enviada') throw Error('Solo se puede modificar una solicitud en estado Enviada');
+    const s = sol(id); duenio(u, s); if (s.estado !== 'Enviada') throw Error('Solo solicitudes en estado Enviada');
     if (!['monto', 'desc'].includes(campo)) throw Error('Campo no modificable');
     if (campo === 'monto') { valor = +valor; if (!(valor > 0)) throw Error('Monto inválido'); }
     const antes = s[campo]; s[campo] = valor; return { sol: id, det: { campo, antes, despues: valor } };
   }),
 
-  adjuntar: audited('CARGAR_DOCUMENTO', (u, id, f) => { const s = sol(id); duenio(u, s); if (['Autorizada', 'Rechazada'].includes(s.estado)) throw Error('La solicitud ya está cerrada'); s.docs.push({ ...f, fecha: now() }); return { sol: id, det: { documento: f.nombre } }; }),
+  adjuntar: audited('CARGAR_DOCUMENTO', async (u, id, f) => { 
+    const s = sol(id); duenio(u, s); 
+    if (['Autorizada', 'Rechazada'].includes(s.estado)) throw Error('Solicitud cerrada'); 
+    s.docs.push({ ...f, fecha: now() }); 
+    const solId = parseInt(String(id).replace(/\D/g, '')) || 1;
+    await supabaseClient.from('documentos').insert([{ solicitud_id: solId, nombre_archivo: f.name, tamano: f.size, ruta: 'docs/' + f.name }]);
+    return { sol: id, det: { documento: f.name } }; 
+  }),
   
-  evaluar: audited('EVALUAR', (u, id, puntaje, coment) => {
-    need(u, 'evaluador'); const s = sol(id), k = D().comites.find(k => k.id === D().convs.find(c => c.id === s.conv)?.comite);
-    if (!k?.miembros.includes(u.id)) throw Error('Solo los miembros del comité evaluador pueden evaluar');
-    if (!(puntaje >= 0 && puntaje <= 100)) throw Error('El puntaje debe estar entre 0 y 100');
-    if (['Autorizada', 'Rechazada'].includes(s.estado)) throw Error('La solicitud ya está cerrada');
+  evaluar: audited('EVALUAR', async (u, id, puntaje, coment) => {
+    need(u, 'evaluador'); const s = sol(id);
+    if (!(puntaje >= 0 && puntaje <= 100)) throw Error('Puntaje entre 0 y 100');
+    if (['Autorizada', 'Rechazada'].includes(s.estado)) throw Error('Solicitud cerrada');
     D().evals.push({ id: uid('V'), sol: id, userId: u.id, nombre: u.nombre, puntaje, coment, fecha: now() });
-    if (s.estado === 'Enviada') cambiar(s, 'En evaluación', u);
+    const solId = parseInt(String(id).replace(/\D/g, '')) || 1;
+    const userId = parseInt(String(u.id).replace(/\D/g, '')) || 1;
+    await supabaseClient.from('evaluaciones').insert([{ solicitud_id: solId, evaluador_id: userId, puntaje, comentario: coment }]);
+    if (s.estado === 'Enviada') await cambiar(s, 'En evaluación', u);
     return { sol: id, det: { puntaje } };
   }),
 
-  decidir: audited('DECIDIR', (u, id, ok, coment) => {
-    const s = sol(id); if (s.estado !== 'En evaluación') throw Error('La solicitud debe estar En evaluación (con evaluación registrada)');
+  decidir: audited('DECIDIR', async (u, id, ok, coment) => {
+    const s = sol(id); if (s.estado !== 'En evaluación') throw Error('Debe estar En evaluación');
     const pol = PolicyFactory.para(s), paso = sigPaso(pol, s); pol.check(u, s, paso);
     s.aprob.push({ tipo: paso, userId: u.id, nombre: u.nombre, fecha: now(), resultado: ok ? 'aprobada' : 'rechazada', coment });
-    if (!ok) cambiar(s, 'Rechazada', u); else if (!sigPaso(pol, s)) cambiar(s, 'Autorizada', u);
+    const solId = parseInt(String(id).replace(/\D/g, '')) || 1;
+    const userId = parseInt(String(u.id).replace(/\D/g, '')) || 1;
+    await supabaseClient.from('aprobaciones').insert([{ solicitud_id: solId, tipo: paso, usuario_id: userId, resultado: ok ? 'aprobada' : 'rechazada', comentario: coment }]);
+    if (!ok) await cambiar(s, 'Rechazada', u); else if (!sigPaso(pol, s)) await cambiar(s, 'Autorizada', u);
     return { sol: id, det: { paso, resultado: ok ? 'aprobada' : 'rechazada' } };
   })
 };
 
-/* ===== Autenticación conectada a Supabase (Tabla usuarios) ===== */
+/* ===== Autenticación con 'usuarios' e 'intentos_acceso' ===== */
 const SAL = 'becas-umg|';
 const sha256 = s => {
   const b = [...new TextEncoder().encode(s)], l = b.length * 8; b.push(128);
@@ -214,44 +243,28 @@ const sha256 = s => {
 
 const Auth = {
   fallos: {},
+  async registrarIntento(usuarioEscrito, resultado) {
+    await supabaseClient.from('intentos_acceso').insert([{ usuario_escrito: usuarioEscrito, resultado }]);
+  },
   async login(usuario, pw, tipo) {
-    const k = usuario.toLowerCase(), t = this.fallos[k], bloq = t && Date.now() < t.hasta;
-    if (bloq && t.n >= 3) throw Error('Demasiados intentos fallidos. Espere ' + Math.ceil((t.hasta - Date.now()) / 1000) + ' s');
+    const k = usuario.toLowerCase();
+    const { data: usersList } = await supabaseClient.from('usuarios').select('*').ilike('usuario', k);
 
-    const { data: usersList, error } = await supabaseClient
-      .from('usuarios')
-      .select('*')
-      .ilike('usuario', k);
-
-    if (error || !usersList || usersList.length === 0) {
-      this.registrarFallo(k);
+    if (!usersList || usersList.length === 0) {
+      await this.registrarIntento(usuario, 'fallido');
       throw Error('Usuario o contraseña incorrectos');
     }
 
     const u = usersList.find(x => (tipo === 'estudiante') === (x.rol === 'estudiante'));
-
     if (!u || u.contrasena_hash !== sha256(SAL + k + '|' + pw)) {
-      this.registrarFallo(k);
+      await this.registrarIntento(usuario, 'fallido');
       throw Error('Usuario o contraseña incorrectos');
     }
 
-    delete this.fallos[k]; 
+    await this.registrarIntento(usuario, 'exitoso');
     sessionStorage.setItem('becas_ses', JSON.stringify(u));
     return u;
   },
-  
-  registrarFallo(k) {
-    const t = this.fallos[k];
-    const bloq = t && Date.now() < t.hasta;
-    this.fallos[k] = { n: (bloq ? t.n : 0) + 1, hasta: Date.now() + 30000 };
-  },
-
-  actual() { 
-    const ses = sessionStorage.getItem('becas_ses');
-    return ses ? JSON.parse(ses) : null; 
-  },
-  
-  salir() { 
-    sessionStorage.removeItem('becas_ses'); 
-  }
+  actual() { const s = sessionStorage.getItem('becas_ses'); return s ? JSON.parse(s) : null; },
+  salir() { sessionStorage.removeItem('becas_ses'); }
 };
