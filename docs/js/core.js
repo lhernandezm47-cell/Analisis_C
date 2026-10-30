@@ -156,11 +156,11 @@ async function registrarNotificacionConEnvios(solicitudId, estudianteId, evento,
             return null;
         }
 
-        const estadoEmail = simularFalloEmail ? 'fallo' : 'exito';
+        const estadoEmail = simularFalloEmail ? 'fallo' : 'ok';
         const errorEmail = simularFalloEmail ? 'Servidor SMTP no disponible' : null;
 
         const canalesEnvio = [
-            { notificacion_id: notifData.id, canal: 'app', resultado: 'exito', error_detalles: null },
+            { notificacion_id: notifData.id, canal: 'app', resultado: 'ok', error_detalles: null },
             { notificacion_id: notifData.id, canal: 'email', resultado: estadoEmail, error_detalles: errorEmail }
         ];
 
@@ -216,20 +216,25 @@ window.AuditLog = {
 };
 
 /* ----- Políticas de aprobación ----- */
+// true  = TODAS las solicitudes pasan por evaluador y luego por la autoridad (Gabriela).
+// false = solo las de monto mayor a LIMITE pasan por la autoridad; las demás las cierra el evaluador.
+const AUTORIDAD_SIEMPRE = true;
+
 window.PolicyFactory = {
-    // Monto <= LIMITE: solo aprueba el comité. Monto > LIMITE: comité + autoridad.
     para(s) {
-        const mayor = Number(s.monto) > LIMITE;
-        const pasos = [{ tipo: 'Comité', rol: 'evaluador' }];
-        if (mayor) pasos.push({ tipo: 'Autoridad', rol: 'autoridad' });
+        const doble = AUTORIDAD_SIEMPRE || Number(s.monto) > LIMITE;
+        // Los tipos coinciden con los que ya usa la tabla 'aprobaciones': unica, evaluacion, autoridad
+        const pasos = doble
+            ? [{ tipo: 'evaluacion', rol: 'evaluador' }, { tipo: 'autoridad', rol: 'autoridad' }]
+            : [{ tipo: 'unica', rol: 'evaluador' }];
         return {
-            nombre: mayor ? 'Mayor monto' : 'Estándar',
+            nombre: doble ? 'Evaluación + autoridad' : 'Aprobación única',
             pasos,
             check(user, sol, paso) {
                 if (!paso) throw new Error('La solicitud no tiene aprobaciones pendientes');
                 if (user.rol !== paso.rol) throw new Error('Esta aprobación le corresponde al rol: ' + paso.rol);
                 if ((sol.aprob || []).some(a => a.tipo === paso.tipo && a.userId === user.id)) throw new Error('Ya registró esta aprobación');
-                if (paso.tipo === 'Comité') {
+                if (paso.rol === 'evaluador') {
                     const conv = (D().convs || []).find(c => c.id === sol.conv);
                     const com = (D().comites || []).find(k => k.id === conv?.comite);
                     if (com && com.miembros.length && !com.miembros.includes(user.id)) throw new Error('Usted no pertenece al comité de esta convocatoria');
@@ -239,9 +244,9 @@ window.PolicyFactory = {
     }
 };
 
-// Primer paso que todavía no tiene una aprobación "Aprobada"
+// Primer paso que todavía no tiene una aprobación "aprobada"
 window.sigPaso = (pol, s) =>
-    pol.pasos.find(p => !(s.aprob || []).some(a => a.tipo === p.tipo && a.resultado === 'Aprobada')) || null;
+    pol.pasos.find(p => !(s.aprob || []).some(a => a.tipo === p.tipo && String(a.resultado).toLowerCase() === 'aprobada')) || null;
 
 /* ----- Operaciones principales ----- */
 window.Becas = {
@@ -376,7 +381,7 @@ window.Becas = {
         if (s.estado !== 'En evaluación') throw new Error('La solicitud debe estar En evaluación');
         const pol = PolicyFactory.para(s), paso = sigPaso(pol, s);
         pol.check(user, s, paso);
-        const resultado = aprobar ? 'Aprobada' : 'Rechazada';
+        const resultado = aprobar ? 'aprobada' : 'rechazada';
         const { error } = await supabaseClient.from('aprobaciones').insert([{
             solicitud_id: idNum(id), tipo: paso.tipo, usuario_id: idNum(user.id),
             fecha_hora: now(), resultado, comentario: coment || ''
@@ -384,7 +389,7 @@ window.Becas = {
         chk('No se pudo registrar la decisión', error);
         await AuditLog.registrar(user, aprobar ? 'APROBAR' : 'RECHAZAR', id, { tipo: paso.tipo, comentario: coment || '' });
         if (!aprobar) return Becas._estado(user, s, 'Rechazada');
-        const simulada = { aprob: [...(s.aprob || []), { tipo: paso.tipo, resultado: 'Aprobada' }] };
+        const simulada = { aprob: [...(s.aprob || []), { tipo: paso.tipo, resultado: 'aprobada' }] };
         if (!sigPaso(pol, simulada)) await Becas._estado(user, s, 'Autorizada');
     },
 
